@@ -52,63 +52,72 @@ function randTreatment() {
   return TREATMENTS[Math.floor(Math.random() * TREATMENTS.length)];
 }
 
-// ── Build Excel — Plain, clean, no background colours ─────────────
+// ── Build Excel file — Black & White, Bold Header, Bold Total ─────
 async function buildExcel(data) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Clinic Register';
 
+  // All colours are black / white / grey only — no green, no colour
+  const BLACK      = 'FF000000';
+  const WHITE      = 'FFFFFFFF';
+  const LIGHT_GREY = 'FFF2F2F2'; // very light grey for alternate rows
+  const MID_GREY   = 'FFD9D9D9'; // border colour
+  const DARK_GREY  = 'FF404040'; // total row background
+
   for (const sheet of data.sheets) {
     const ws = wb.addWorksheet(sheet.name);
 
-    // Column widths
-    ws.getColumn(1).width = 12;  // ODIP No.
-    ws.getColumn(2).width = 28;  // Patient Name
-    ws.getColumn(3).width = 52;  // Treatment Givent
-    ws.getColumn(4).width = 12;  // Amount
+    ws.getColumn(1).width = 12;
+    ws.getColumn(2).width = 28;
+    ws.getColumn(3).width = 50;
+    ws.getColumn(4).width = 14;
 
-    // ── Row 1: Header — bold, size 13, NO background fill ──────────
-    const hRow = ws.getRow(1);
-    hRow.height = 22;
-    ['ODIP No.', 'Patient Name', 'Treatment Givent', 'amount'].forEach((h, i) => {
-      const c = hRow.getCell(i + 1);
-      c.value = h;
-      c.font      = { bold: true, size: 13, name: 'Calibri' };
-      c.alignment = { horizontal: 'center', vertical: 'middle' };
+    // ── Header row — bold, size 13, white text on black background ──
+    const headerRow = ws.getRow(1);
+    headerRow.height = 28;
+    ['ODIP No.', 'Patient Name', 'Treatment Givent', 'Amount'].forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = h;
+      cell.font      = { bold: true, size: 13, color: { argb: WHITE }, name: 'Calibri' };
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLACK } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border    = { bottom: { style: 'medium', color: { argb: MID_GREY } } };
     });
 
-    // ── Data rows — plain, size 11, no fill, no border ─────────────
-    sheet.patients.forEach((p) => {
+    // ── Data rows — normal size 11, no colour, thin grey border ────
+    sheet.patients.forEach((p, i) => {
       const row = ws.addRow([p.odip, p.name, p.treatment, p.amount]);
-      row.height = 18;
+      row.height = 20;
+      // Alternate white and very light grey — no colour at all
+      const bg = i % 2 === 0 ? WHITE : LIGHT_GREY;
       row.eachCell((cell, col) => {
-        cell.font      = { size: 11, name: 'Calibri' };
-        cell.alignment = {
-          vertical: 'middle',
-          horizontal: col === 1 || col === 4 ? 'center' : 'left'
-        };
+        cell.font      = { size: 11, color: { argb: BLACK }, name: 'Calibri' };
+        cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+        cell.alignment = { vertical: 'middle', horizontal: col === 1 || col === 4 ? 'center' : 'left' };
+        cell.border    = { bottom: { style: 'thin', color: { argb: MID_GREY } } };
       });
     });
 
-    // ── TOTAL row — bold, size 14, plain white background ──────────
-    // "Total" label goes in column C, amount in column D
-    // (matches exactly what you showed in the screenshot)
-    const totalRowNum = sheet.patients.length + 2; // row after last patient
-    const totalVal    = sheet.patients.reduce((s, p) => s + p.amount, 0);
+    // ── TOTAL row — bold, size 13, white text on dark grey ─────────
+    const total   = sheet.patients.reduce((s, p) => s + p.amount, 0);
+    const dataEnd = sheet.patients.length + 1;
+    ws.mergeCells(dataEnd + 1, 1, dataEnd + 1, 3);
+    const totalRow = ws.getRow(dataEnd + 1);
+    totalRow.height = 26;
 
-    const tRow = ws.getRow(totalRowNum);
-    tRow.height = 22;
+    // "TOTAL" label (merged A–C)
+    totalRow.getCell(1).value     = 'TOTAL';
+    totalRow.getCell(1).font      = { bold: true, size: 13, color: { argb: WHITE }, name: 'Calibri' };
+    totalRow.getCell(1).fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_GREY } };
+    totalRow.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+    totalRow.getCell(1).border    = { top: { style: 'medium', color: { argb: BLACK } } };
 
-    // Column C: "Total" label — bold, size 14
-    const labelCell = tRow.getCell(3);
-    labelCell.value     = 'Total';
-    labelCell.font      = { bold: true, size: 14, name: 'Calibri' };
-    labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Column D: amount value — bold, size 14
-    const amtCell = tRow.getCell(4);
-    amtCell.value     = totalVal;
-    amtCell.font      = { bold: true, size: 14, name: 'Calibri' };
-    amtCell.alignment = { horizontal: 'right', vertical: 'middle' };
+    // Amount value (column D)
+    totalRow.getCell(4).value     = total;
+    totalRow.getCell(4).font      = { bold: true, size: 13, color: { argb: WHITE }, name: 'Calibri' };
+    totalRow.getCell(4).fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK_GREY } };
+    totalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+    totalRow.getCell(4).border    = { top: { style: 'medium', color: { argb: BLACK } } };
 
     ws.views = [{ state: 'frozen', ySplit: 1 }];
   }
@@ -117,14 +126,9 @@ async function buildExcel(data) {
 }
 
 // ── Middleware ─────────────────────────────────────────────────────
-
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-app.use(express.static(path.join(__dirname, "public")));
-
-app.get("*", (req,res)=>{
-   res.sendFile(path.join(__dirname,"public","index.html"));
-});
 // ── API Routes ─────────────────────────────────────────────────────
 
 // Get full state
