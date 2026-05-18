@@ -7,7 +7,12 @@ const app = express();
 const PORT = 3000;
 
 // Make sure data folder exists
-const EXCEL_FILE = path.join(__dirname,'patients.xlsx');
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
+
+const DATA_FILE   = path.join(dataDir, 'patients.json');
+const EXCEL_FILE  = path.join(dataDir, 'patients.xlsx');
+
 // ── All 17 Treatments ──────────────────────────────────────────────
 const TREATMENTS = [
   { name: 'PA-Para, Amox260, Famtab, Avil',              amount: 70  },
@@ -30,26 +35,17 @@ const TREATMENTS = [
 ];
 
 // ── Load / Save JSON data ──────────────────────────────────────────
-// Temporary memory only (no storage)
-
-let memoryData = {
-    configured:false,
-    nextOdip:1,
-    startOdip:1,
-    sheets:[
-      {
-        name:'Sheet 1',
-        patients:[]
-      }
-    ]
-};
-
-function loadData(){
-   return memoryData;
+function loadData() {
+  if (!fs.existsSync(DATA_FILE)) {
+    const fresh = { configured: false, nextOdip: 6759, startOdip: 6759, sheets: [{ name: 'Sheet 1', patients: [] }] };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(fresh, null, 2));
+    return fresh;
+  }
+  return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 }
 
-function saveData(data){
-   memoryData=data;
+function saveData(d) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(d, null, 2));
 }
 
 function randTreatment() {
