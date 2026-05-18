@@ -119,10 +119,13 @@ async function buildExcel(data) {
 // ── Middleware ─────────────────────────────────────────────────────
 app.use(express.json());
 
-app.use(express.static(path.join(__dirname, "public")));
+// ── Middleware ─────────────────────────
+app.use(express.json());
 
-app.get("*", (req,res)=>{
-   res.sendFile(path.join(__dirname,"public","index.html"));
+app.use(express.static(__dirname));
+
+app.get("/", (req,res)=>{
+   res.sendFile(path.join(__dirname,"index.html"));
 });
 // ── API Routes ─────────────────────────────────────────────────────
 
