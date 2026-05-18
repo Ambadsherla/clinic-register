@@ -7,8 +7,7 @@ const app = express();
 const PORT = 3000;
 
 // Make sure data folder exists
-const EXCEL_FILE  = path.join(dataDir, 'patients.xlsx');
-
+const EXCEL_FILE = path.join(__dirname,'patients.xlsx');
 // ── All 17 Treatments ──────────────────────────────────────────────
 const TREATMENTS = [
   { name: 'PA-Para, Amox260, Famtab, Avil',              amount: 70  },
