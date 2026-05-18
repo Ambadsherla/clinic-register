@@ -122,9 +122,7 @@ app.use(express.json());
 
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("*", (req,res)=>{
-   res.sendFile(path.join(__dirname,"public","index.html"));
-});
+
 // ── API Routes ─────────────────────────────────────────────────────
 
 // Get full state
@@ -225,6 +223,11 @@ app.get('/api/download', async (req, res) => {
 });
 
 // Start server
+// keep this LAST
+
+app.get("*", (req,res)=>{
+   res.sendFile(path.join(__dirname,"public","index.html"));
+});
 app.listen(PORT, () => {
   console.log('');
   console.log('  ✅  Clinic Register is running!');
