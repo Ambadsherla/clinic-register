@@ -1,17 +1,67 @@
-const express = require('express');
-const ExcelJS = require('exceljs');
-const path = require('path');
-const fs = require('fs');
+const express  = require('express');
+const ExcelJS  = require('exceljs');
+const path     = require('path');
+const { Pool } = require('pg');
 
-const app = express();
-const PORT = 3000;
+const app  = express();
+const PORT = process.env.PORT || 3000;
 
-// Make sure data folder exists
-const dataDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
+// ── PostgreSQL connection ──────────────────────────────────────────
+// Render gives you a DATABASE_URL environment variable automatically
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL
+    ? { rejectUnauthorized: false }
+    : false
+});
 
-const DATA_FILE   = path.join(dataDir, 'patients.json');
-const EXCEL_FILE  = path.join(dataDir, 'patients.xlsx');
+// ── Create tables if they don't exist ─────────────────────────────
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS clinic_config (
+      id         SERIAL PRIMARY KEY,
+      configured BOOLEAN   DEFAULT false,
+      start_odip INTEGER   DEFAULT 1,
+      next_odip  INTEGER   DEFAULT 1
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sheets (
+      id         SERIAL PRIMARY KEY,
+      name       TEXT NOT NULL,
+      position   INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS patients (
+      id         SERIAL PRIMARY KEY,
+      sheet_id   INTEGER REFERENCES sheets(id) ON DELETE CASCADE,
+      odip       INTEGER NOT NULL,
+      name       TEXT    NOT NULL,
+      treatment  TEXT    NOT NULL,
+      amount     INTEGER NOT NULL,
+      position   INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  // Insert default config row if none exists
+  const cfg = await pool.query('SELECT id FROM clinic_config LIMIT 1');
+  if (cfg.rows.length === 0) {
+    await pool.query('INSERT INTO clinic_config (configured, start_odip, next_odip) VALUES (false, 1, 1)');
+  }
+
+  // Insert default Sheet 1 if no sheets exist
+  const sh = await pool.query('SELECT id FROM sheets LIMIT 1');
+  if (sh.rows.length === 0) {
+    await pool.query("INSERT INTO sheets (name, position) VALUES ('Sheet 1', 1)");
+  }
+
+  console.log('  ✅  Database ready');
+}
 
 // ── All 17 Treatments ──────────────────────────────────────────────
 const TREATMENTS = [
@@ -34,204 +84,284 @@ const TREATMENTS = [
   { name: 'Para depin, Dexa, Amox, kid',                amount: 50  },
 ];
 
-// ── Load / Save JSON data ──────────────────────────────────────────
-function loadData() {
-  if (!fs.existsSync(DATA_FILE)) {
-    const fresh = { configured: false, nextOdip: 6759, startOdip: 6759, sheets: [{ name: 'Sheet 1', patients: [] }] };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(fresh, null, 2));
-    return fresh;
-  }
-  return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-}
-
-function saveData(d) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(d, null, 2));
-}
-
 function randTreatment() {
   return TREATMENTS[Math.floor(Math.random() * TREATMENTS.length)];
 }
 
-// ── Build Excel — Plain, clean, no background colours ─────────────
-async function buildExcel(data) {
+// ── Load full state from DB ────────────────────────────────────────
+async function loadState() {
+  const cfgRes = await pool.query('SELECT * FROM clinic_config LIMIT 1');
+  const cfg    = cfgRes.rows[0];
+
+  const sheetsRes = await pool.query('SELECT * FROM sheets ORDER BY position ASC');
+  const sheets    = [];
+
+  for (const sh of sheetsRes.rows) {
+    const pRes = await pool.query(
+      'SELECT * FROM patients WHERE sheet_id = $1 ORDER BY position ASC',
+      [sh.id]
+    );
+    sheets.push({
+      id:       sh.id,
+      name:     sh.name,
+      patients: pRes.rows.map(p => ({
+        id:        p.id,
+        odip:      p.odip,
+        name:      p.name,
+        treatment: p.treatment,
+        amount:    p.amount
+      }))
+    });
+  }
+
+  return {
+    configured: cfg.configured,
+    startOdip:  cfg.start_odip,
+    nextOdip:   cfg.next_odip,
+    sheets
+  };
+}
+
+// ── Renumber all ODIPs from scratch ───────────────────────────────
+async function renumberOdips(startOdip) {
+  const sheetsRes = await pool.query('SELECT id FROM sheets ORDER BY position ASC');
+  let odip = startOdip;
+  for (const sh of sheetsRes.rows) {
+    const pRes = await pool.query(
+      'SELECT id FROM patients WHERE sheet_id = $1 ORDER BY position ASC',
+      [sh.id]
+    );
+    for (const p of pRes.rows) {
+      await pool.query('UPDATE patients SET odip = $1 WHERE id = $2', [odip, p.id]);
+      odip++;
+    }
+  }
+  await pool.query('UPDATE clinic_config SET next_odip = $1', [odip]);
+  return odip;
+}
+
+// ── Build Excel ────────────────────────────────────────────────────
+async function buildExcel(state) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Clinic Register';
 
-  for (const sheet of data.sheets) {
+  for (const sheet of state.sheets) {
+    if (!sheet.patients.length) continue;
+
     const ws = wb.addWorksheet(sheet.name);
+    ws.getColumn(1).width = 12;
+    ws.getColumn(2).width = 28;
+    ws.getColumn(3).width = 52;
+    ws.getColumn(4).width = 12;
 
-    // Column widths
-    ws.getColumn(1).width = 12;  // ODIP No.
-    ws.getColumn(2).width = 28;  // Patient Name
-    ws.getColumn(3).width = 52;  // Treatment Givent
-    ws.getColumn(4).width = 12;  // Amount
-
-    // ── Row 1: Header — bold, size 13, NO background fill ──────────
+    // Header — bold, size 13
     const hRow = ws.getRow(1);
     hRow.height = 22;
-    ['ODIP No.', 'Patient Name', 'Treatment Givent', 'amount'].forEach((h, i) => {
-      const c = hRow.getCell(i + 1);
-      c.value = h;
+    ['ODIP No.', 'Patient Name', 'Treatment Givent', 'Amount'].forEach((h, i) => {
+      const c     = hRow.getCell(i + 1);
+      c.value     = h;
       c.font      = { bold: true, size: 13, name: 'Calibri' };
       c.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
-    // ── Data rows — plain, size 11, no fill, no border ─────────────
-    sheet.patients.forEach((p) => {
-      const row = ws.addRow([p.odip, p.name, p.treatment, p.amount]);
+    // Data rows — plain, size 11
+    sheet.patients.forEach(p => {
+      const row  = ws.addRow([p.odip, p.name, p.treatment, p.amount]);
       row.height = 18;
       row.eachCell((cell, col) => {
         cell.font      = { size: 11, name: 'Calibri' };
         cell.alignment = {
-          vertical: 'middle',
+          vertical:   'middle',
           horizontal: col === 1 || col === 4 ? 'center' : 'left'
         };
       });
     });
 
-    // ── TOTAL row — bold, size 14, plain white background ──────────
-    // "Total" label goes in column C, amount in column D
-    // (matches exactly what you showed in the screenshot)
-    const totalRowNum = sheet.patients.length + 2; // row after last patient
-    const totalVal    = sheet.patients.reduce((s, p) => s + p.amount, 0);
-
-    const tRow = ws.getRow(totalRowNum);
-    tRow.height = 22;
-
-    // Column C: "Total" label — bold, size 14
-    const labelCell = tRow.getCell(3);
-    labelCell.value     = 'Total';
-    labelCell.font      = { bold: true, size: 14, name: 'Calibri' };
-    labelCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Column D: amount value — bold, size 14
-    const amtCell = tRow.getCell(4);
-    amtCell.value     = totalVal;
-    amtCell.font      = { bold: true, size: 14, name: 'Calibri' };
-    amtCell.alignment = { horizontal: 'right', vertical: 'middle' };
+    // Total row — bold, size 14
+    const totalRowNum   = sheet.patients.length + 2;
+    const totalVal      = sheet.patients.reduce((s, p) => s + p.amount, 0);
+    const tRow          = ws.getRow(totalRowNum);
+    tRow.height         = 22;
+    const lc            = tRow.getCell(3);
+    lc.value            = 'Total';
+    lc.font             = { bold: true, size: 14, name: 'Calibri' };
+    lc.alignment        = { horizontal: 'center', vertical: 'middle' };
+    const ac            = tRow.getCell(4);
+    ac.value            = totalVal;
+    ac.font             = { bold: true, size: 14, name: 'Calibri' };
+    ac.alignment        = { horizontal: 'right', vertical: 'middle' };
 
     ws.views = [{ state: 'frozen', ySplit: 1 }];
   }
 
-  await wb.xlsx.writeFile(EXCEL_FILE);
+  // Write to buffer and return — no file system needed
+  const buffer = await wb.xlsx.writeBuffer();
+  return buffer;
 }
 
 // ── Middleware ─────────────────────────────────────────────────────
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Middleware ─────────────────────────
-app.use(express.json());
-
-app.use(express.static(__dirname));
-
-app.get("/", (req,res)=>{
-   res.sendFile(path.join(__dirname,"index.html"));
-});
 // ── API Routes ─────────────────────────────────────────────────────
 
-// Get full state
-app.get('/api/state', (req, res) => {
-  res.json(loadData());
+// GET full state
+app.get('/api/state', async (req, res) => {
+  try {
+    res.json(await loadState());
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
-// First-time ODIP setup
-app.post('/api/setup', (req, res) => {
+// POST first-time ODIP setup
+app.post('/api/setup', async (req, res) => {
   const { startOdip } = req.body;
   if (!startOdip || startOdip < 1) return res.status(400).json({ error: 'Invalid ODIP' });
-  const data = loadData();
-  data.configured = true;
-  data.startOdip  = startOdip;
-  data.nextOdip   = startOdip;
-  saveData(data);
-  res.json({ ok: true });
+  try {
+    await pool.query(
+      'UPDATE clinic_config SET configured = true, start_odip = $1, next_odip = $1',
+      [startOdip]
+    );
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-// Add patient
+// POST add patient to last sheet
 app.post('/api/patient', async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  try {
+    // Get last sheet
+    const shRes = await pool.query('SELECT * FROM sheets ORDER BY position DESC LIMIT 1');
+    const sheet = shRes.rows[0];
 
-  const data = loadData();
-  const t = randTreatment();
-  const patient = { odip: data.nextOdip, name: name.trim(), treatment: t.name, amount: t.amount };
+    // Get current nextOdip
+    const cfgRes = await pool.query('SELECT next_odip FROM clinic_config LIMIT 1');
+    const nextOdip = cfgRes.rows[0].next_odip;
 
-  data.sheets[data.sheets.length - 1].patients.push(patient);
-  data.nextOdip++;
-  saveData(data);
-  await buildExcel(data);
+    // Count existing patients in this sheet for position
+    const countRes = await pool.query('SELECT COUNT(*) FROM patients WHERE sheet_id = $1', [sheet.id]);
+    const position = parseInt(countRes.rows[0].count) + 1;
 
-  res.json({ patient, nextOdip: data.nextOdip });
-});
+    const t = randTreatment();
+    const pRes = await pool.query(
+      'INSERT INTO patients (sheet_id, odip, name, treatment, amount, position) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [sheet.id, nextOdip, name.trim(), t.name, t.amount, position]
+    );
+    const patient = pRes.rows[0];
 
-// Undo last patient
-app.delete('/api/patient/last', async (req, res) => {
-  const data = loadData();
-  const sheet = data.sheets[data.sheets.length - 1];
-  if (!sheet.patients.length) return res.status(400).json({ error: 'Nothing to undo' });
+    // Increment nextOdip
+    await pool.query('UPDATE clinic_config SET next_odip = next_odip + 1');
+    const newNext = nextOdip + 1;
 
-  const removed = sheet.patients.pop();
-  data.nextOdip--;
-  saveData(data);
-  await buildExcel(data);
-  res.json({ ok: true, removed, nextOdip: data.nextOdip });
-});
-
-// Delete specific patient
-app.delete('/api/patient/:si/:pi', async (req, res) => {
-  const data = loadData();
-  const si = parseInt(req.params.si);
-  const pi = parseInt(req.params.pi);
-  if (!data.sheets[si]) return res.status(404).json({ error: 'Sheet not found' });
-
-  data.sheets[si].patients.splice(pi, 1);
-
-  // Re-number all ODIPs from start
-  let odip = data.startOdip;
-  for (const s of data.sheets) {
-    for (const p of s.patients) { p.odip = odip++; }
+    res.json({
+      patient: { id: patient.id, odip: patient.odip, name: patient.name, treatment: patient.treatment, amount: patient.amount },
+      nextOdip: newNext
+    });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
   }
-  data.nextOdip = odip;
-  saveData(data);
-  await buildExcel(data);
-  res.json({ ok: true });
 });
 
-// Create new sheet
+// DELETE last patient (undo)
+app.delete('/api/patient/last', async (req, res) => {
+  try {
+    const shRes = await pool.query('SELECT * FROM sheets ORDER BY position DESC LIMIT 1');
+    const sheet = shRes.rows[0];
+
+    const pRes = await pool.query(
+      'SELECT * FROM patients WHERE sheet_id = $1 ORDER BY position DESC LIMIT 1',
+      [sheet.id]
+    );
+    if (!pRes.rows.length) return res.status(400).json({ error: 'Nothing to undo' });
+
+    const patient = pRes.rows[0];
+    await pool.query('DELETE FROM patients WHERE id = $1', [patient.id]);
+    await pool.query('UPDATE clinic_config SET next_odip = next_odip - 1');
+
+    const cfgRes = await pool.query('SELECT next_odip FROM clinic_config LIMIT 1');
+    res.json({
+      ok:      true,
+      removed: { name: patient.name },
+      nextOdip: cfgRes.rows[0].next_odip
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE specific patient by DB id
+app.delete('/api/patient/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await pool.query('DELETE FROM patients WHERE id = $1', [id]);
+
+    // Re-number all ODIPs
+    const cfgRes   = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
+    const startOdip = cfgRes.rows[0].start_odip;
+    await renumberOdips(startOdip);
+
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST create new sheet
 app.post('/api/sheet', async (req, res) => {
-  const data = loadData();
-  const num  = data.sheets.length + 1;
-  data.sheets.push({ name: `Sheet ${num}`, patients: [] });
-  saveData(data);
-  await buildExcel(data);
-  res.json({ sheetName: `Sheet ${num}`, sheetCount: data.sheets.length });
+  try {
+    const countRes = await pool.query('SELECT COUNT(*) FROM sheets');
+    const num      = parseInt(countRes.rows[0].count) + 1;
+    const position = num;
+    const shRes    = await pool.query(
+      'INSERT INTO sheets (name, position) VALUES ($1, $2) RETURNING *',
+      ['Sheet ' + num, position]
+    );
+    res.json({ sheetName: shRes.rows[0].name, sheetId: shRes.rows[0].id });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-// Rename a sheet
-app.patch('/api/sheet/:si/rename', async (req, res) => {
-  const data = loadData();
-  const si   = parseInt(req.params.si);
+// PATCH rename sheet
+app.patch('/api/sheet/:id/rename', async (req, res) => {
   const { name } = req.body;
-  if (!data.sheets[si]) return res.status(404).json({ error: 'Sheet not found' });
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name cannot be empty' });
-  data.sheets[si].name = name.trim();
-  saveData(data);
-  await buildExcel(data);
-  res.json({ ok: true, name: data.sheets[si].name });
+  try {
+    await pool.query('UPDATE sheets SET name = $1 WHERE id = $2', [name.trim(), req.params.id]);
+    res.json({ ok: true, name: name.trim() });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-// Download Excel
+// GET download Excel
 app.get('/api/download', async (req, res) => {
-  const data = loadData();
-  await buildExcel(data);
-  res.download(EXCEL_FILE, 'patients.xlsx');
+  try {
+    const state  = await loadState();
+    const buffer = await buildExcel(state);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="patients.xlsx"');
+    res.send(buffer);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log('');
-  console.log('  ✅  Clinic Register is running!');
-  console.log(`  👉  Open this in your browser: http://localhost:${PORT}`);
-  console.log('');
-  console.log('  Press Ctrl+C to stop the server.');
-  console.log('');
+// ── Start ──────────────────────────────────────────────────────────
+initDB().then(() => {
+  app.listen(PORT, () => {
+    console.log('');
+    console.log('  ✅  Clinic Register running!');
+    console.log('  👉  Open: http://localhost:' + PORT);
+    console.log('');
+  });
+}).catch(err => {
+  console.error('DB init failed:', err);
+  process.exit(1);
 });
