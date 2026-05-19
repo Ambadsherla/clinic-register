@@ -443,6 +443,50 @@ function openRenameDialog(sheetId, currentName) {
   if (!newName || !newName.trim() || newName.trim() === currentName) return;
   renameSheet(sheetId, newName.trim());
 }
+async function deleteSheet(sheetId, sheetName){
+
+if(!confirm(
+'Delete "'+sheetName+'" ?'
+)) return;
+
+try{
+
+const res=await fetch(
+'/api/sheet/'+sheetId,
+{
+method:'DELETE'
+}
+);
+
+const data=await res.json();
+
+if(!res.ok)
+throw new Error(data.error);
+
+const full=
+await fetch('/api/state');
+
+state=await full.json();
+
+activeSheet=0;
+
+render();
+
+toast(
+sheetName+
+' deleted',
+'info'
+);
+
+}catch(e){
+
+toast(
+e.message,
+'err'
+);
+
+}
+}
 
 async function renameSheet(sheetId, newName) {
   try {
@@ -493,6 +537,24 @@ function render() {
     rBtn.onmouseout  = () => { rBtn.style.background='var(--surface)'; rBtn.style.color='var(--text3)'; rBtn.style.borderColor='var(--border2)'; };
     rBtn.onclick = (e) => { e.stopPropagation(); openRenameDialog(sh.id, sh.name); };
     tabsEl.appendChild(rBtn);
+    const dBtn=document.createElement('button');
+
+dBtn.textContent='Delete';
+
+dBtn.style.cssText=
+'font-family:var(--sans);font-size:.68rem;padding:4px 10px;border:1px solid #ffbdbd;background:#fff0f0;color:red;border-radius:6px;cursor:pointer;margin-right:8px';
+
+dBtn.onclick=(e)=>{
+e.stopPropagation();
+
+deleteSheet(
+sh.id,
+sh.name
+);
+
+};
+
+tabsEl.appendChild(dBtn);
   });
 
   // Stats
