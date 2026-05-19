@@ -396,54 +396,10 @@ app.post('/api/sheet', async (req, res) => {
 });
 
 
-app.patch('/api/sheet/:id/rename', async (req, res) => {
+app.patch('/api/sheet/:id/rename')
   // DELETE sheet
-app.delete('/api/sheet/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
 
-    // Don't delete if only one sheet exists
-    const countRes = await pool.query(
-      'SELECT COUNT(*) FROM sheets'
-    );
 
-    if(parseInt(countRes.rows[0].count) <= 1){
-      return res.status(400).json({
-        error:'Cannot delete last sheet'
-      });
-    }
-
-    await pool.query(
-      'DELETE FROM sheets WHERE id=$1',
-      [id]
-    );
-
-    // Re-number ODIPs
-    const cfg = await pool.query(
-      'SELECT start_odip FROM clinic_config LIMIT 1'
-    );
-
-    await renumberOdips(
-      cfg.rows[0].start_odip
-    );
-
-    res.json({ok:true});
-
-  } catch(e){
-    res.status(500).json({
-      error:e.message
-    });
-  }
-});
-  const { name } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Name cannot be empty' });
-  try {
-    await pool.query('UPDATE sheets SET name = $1 WHERE id = $2', [name.trim(), req.params.id]);
-    res.json({ ok: true, name: name.trim() });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
 
 // GET download Excel
 app.get('/api/download', async (req, res) => {
