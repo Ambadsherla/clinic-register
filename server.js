@@ -277,25 +277,89 @@ app.delete('/api/patient/last', async (req, res) => {
     const shRes = await pool.query('SELECT * FROM sheets ORDER BY position DESC LIMIT 1');
     const sheet = shRes.rows[0];
 
-    const pRes = await pool.query(
-      'SELECT * FROM patients WHERE sheet_id = $1 ORDER BY position DESC LIMIT 1',
-      [sheet.id]
-    );
-    if (!pRes.rows.length) return res.status(400).json({ error: 'Nothing to undo' });
+// PATCH rename sheet
+app.patch('/api/sheet/:id/rename', async (req, res) => {
 
-    const patient = pRes.rows[0];
-    await pool.query('DELETE FROM patients WHERE id = $1', [patient.id]);
-    await pool.query('UPDATE clinic_config SET next_odip = next_odip - 1');
+const { name } = req.body;
 
-    const cfgRes = await pool.query('SELECT next_odip FROM clinic_config LIMIT 1');
-    res.json({
-      ok:      true,
-      removed: { name: patient.name },
-      nextOdip: cfgRes.rows[0].next_odip
-    });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+if(!name || !name.trim())
+return res.status(400).json({
+error:'Name cannot be empty'
+});
+
+try{
+
+await pool.query(
+'UPDATE sheets SET name=$1 WHERE id=$2',
+[name.trim(),req.params.id]
+);
+
+res.json({
+ok:true,
+name:name.trim()
+});
+
+}catch(e){
+
+res.status(500).json({
+error:e.message
+});
+
+}
+
+});
+
+
+// DELETE sheet
+app.delete('/api/sheet/:id', async (req,res)=>{
+
+try{
+
+const id=parseInt(req.params.id);
+
+const countRes=
+await pool.query(
+'SELECT COUNT(*) FROM sheets'
+);
+
+if(parseInt(
+countRes.rows[0].count
+)<=1){
+
+return res.status(400).json({
+error:'Cannot delete last sheet'
+});
+
+}
+
+await pool.query(
+'DELETE FROM sheets WHERE id=$1',
+[id]
+);
+
+const cfg=
+await pool.query(
+'SELECT start_odip FROM clinic_config LIMIT 1'
+);
+
+await renumberOdips(
+cfg.rows[0].start_odip
+);
+
+res.json({
+ok:true
+});
+
+}catch(e){
+
+console.log(e);
+
+res.status(500).json({
+error:e.message
+});
+
+}
+
 });
 
 // DELETE specific patient by DB id
@@ -331,7 +395,7 @@ app.post('/api/sheet', async (req, res) => {
   }
 });
 
-// PATCH rename sheet
+
 app.patch('/api/sheet/:id/rename', async (req, res) => {
   // DELETE sheet
 app.delete('/api/sheet/:id', async (req, res) => {
