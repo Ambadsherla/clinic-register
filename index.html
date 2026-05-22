@@ -385,7 +385,7 @@ async function savePatient() {
     // Add to last sheet in local state
     state.sheets[state.sheets.length - 1].patients.push(data.patient);
     state.nextOdip = data.nextOdip;
-    activeSheet    = state.sheets.length - 1;
+  
     render();
     input.value = '';
     focusInput();
@@ -432,11 +432,20 @@ async function createSheet() {
     const res  = await fetch('/api/sheet', { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    state.sheets.push({ id: data.sheetId, name: data.sheetName, patients: [] });
-  
-    render();
-    focusInput();
-    toast(data.sheetName + ' created', 'ok');
+   state.sheets.push({
+  id: data.sheetId,
+  name: data.sheetName,
+  patients: []
+});
+
+// make new sheet active
+activeSheet = state.sheets.length - 1;
+
+render();
+
+focusInput();
+
+toast(data.sheetName + ' created', 'ok');
   } catch(e) { toast('Failed to create sheet', 'err'); }
 }
 
