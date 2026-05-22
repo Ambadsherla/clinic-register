@@ -375,7 +375,6 @@ const shRes = await pool.query(
   [sheetId]
 );
 
-const sheet = shRes.rows[0];
     const sheet = shRes.rows[0];
 
     const pRes = await pool.query(
