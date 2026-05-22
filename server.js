@@ -272,11 +272,58 @@ app.post('/api/patient', async (req, res) => {
 });
 
 // DELETE last patient (undo)
+// DELETE last patient (undo)
 app.delete('/api/patient/last', async (req, res) => {
   try {
-    const shRes = await pool.query('SELECT * FROM sheets ORDER BY position DESC LIMIT 1');
+
+    const shRes = await pool.query(
+      'SELECT * FROM sheets ORDER BY position DESC LIMIT 1'
+    );
+
     const sheet = shRes.rows[0];
 
+    const pRes = await pool.query(
+      'SELECT * FROM patients WHERE sheet_id=$1 ORDER BY position DESC LIMIT 1',
+      [sheet.id]
+    );
+
+    if(pRes.rows.length === 0){
+      return res.status(400).json({
+        error:'No patients to undo'
+      });
+    }
+
+    const patient = pRes.rows[0];
+
+    await pool.query(
+      'DELETE FROM patients WHERE id=$1',
+      [patient.id]
+    );
+
+    await pool.query(
+      'UPDATE clinic_config SET next_odip = next_odip - 1'
+    );
+
+    const cfgRes = await pool.query(
+      'SELECT next_odip FROM clinic_config LIMIT 1'
+    );
+
+    res.json({
+      ok:true,
+      removed:patient,
+      nextOdip:cfgRes.rows[0].next_odip
+    });
+
+  } catch(e){
+
+    console.error(e);
+
+    res.status(500).json({
+      error:e.message
+    });
+
+  }
+});
 // PATCH rename sheet
 app.patch('/api/sheet/:id/rename', async (req, res) => {
 
