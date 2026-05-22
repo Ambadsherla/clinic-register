@@ -448,10 +448,6 @@ app.post('/api/sheet', async (req, res) => {
 });
 
 
-app.patch('/api/sheet/:id/rename')
-  // DELETE sheet
-
-
 
 // GET download Excel
 app.get('/api/download', async (req, res) => {
