@@ -17,6 +17,13 @@ const pool = new Pool({
 // ── Create tables if they don't exist ─────────────────────────────
 async function initDB() {
   await pool.query(`
+  CREATE TABLE IF NOT EXISTS excel_files (
+    id SERIAL PRIMARY KEY,
+    name TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS clinic_config (
       id         SERIAL PRIMARY KEY,
       configured BOOLEAN   DEFAULT false,
@@ -26,13 +33,18 @@ async function initDB() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS sheets (
-      id         SERIAL PRIMARY KEY,
-      name       TEXT NOT NULL,
-      position   INTEGER NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
+   CREATE TABLE IF NOT EXISTS sheets (
+  id SERIAL PRIMARY KEY,
+  file_id INTEGER REFERENCES excel_files(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  position INTEGER NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+)
   `);
+  await pool.query(`
+  ALTER TABLE sheets
+  ADD COLUMN IF NOT EXISTS file_id INTEGER
+`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS patients (
