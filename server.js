@@ -235,12 +235,17 @@ app.post('/api/setup', async (req, res) => {
 
 // POST add patient to last sheet
 app.post('/api/patient', async (req, res) => {
-  const { name } = req.body;
+const { name, sheetId } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   try {
     // Get last sheet
-    const shRes = await pool.query('SELECT * FROM sheets ORDER BY position DESC LIMIT 1');
-    const sheet = shRes.rows[0];
+   // Get selected sheet
+const shRes = await pool.query(
+  'SELECT * FROM sheets WHERE id = $1',
+  [sheetId]
+);
+
+const sheet = shRes.rows[0];
 
     // Get current nextOdip
     const cfgRes = await pool.query('SELECT next_odip FROM clinic_config LIMIT 1');
