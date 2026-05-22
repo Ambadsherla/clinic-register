@@ -74,6 +74,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .btn-dl:hover{background:#dce7f5;border-color:rgba(43,87,151,.4)}
 .btn-del{background:transparent;color:var(--text4);border-color:var(--border);padding:4px 9px;font-size:.7rem}
 .btn-del:hover{color:var(--red);border-color:rgba(192,57,43,.3);background:var(--red-bg)}
+.btn-odip{background:var(--amber-bg);color:var(--amber);border-color:rgba(180,83,9,.2)}
+.btn-odip:hover{background:#fde8c8;border-color:rgba(180,83,9,.4)}
+.btn-newfile{background:var(--sage-bg);color:var(--sage);border-color:var(--sage-border)}
+.btn-newfile:hover{background:#d8ede0;border-color:var(--sage)}
 
 /* LAYOUT */
 .main{max-width:1100px;margin:0 auto;padding:28px 28px 80px}
@@ -148,6 +152,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .dialog p{font-size:.85rem;color:var(--text3);line-height:1.6;margin-bottom:24px}
 .dialog-actions{display:flex;gap:10px;justify-content:flex-end}
 
+/* ODIP DIALOG */
+.odip-dialog{max-width:420px}
+.odip-options{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+.odip-option{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid var(--border2);border-radius:var(--r);cursor:pointer;transition:all .15s;background:var(--surface2)}
+.odip-option:hover{border-color:var(--sage-border);background:var(--sage-bg)}
+.odip-option.selected{border-color:var(--sage);background:var(--sage-bg);box-shadow:0 0 0 3px rgba(61,122,94,.1)}
+.odip-option-radio{width:20px;height:20px;border:2px solid var(--border2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.odip-option.selected .odip-option-radio{border-color:var(--sage);background:var(--sage)}
+.odip-option-radio::after{content:'';width:8px;height:8px;background:white;border-radius:50%;opacity:0;transition:opacity .15s}
+.odip-option.selected .odip-option-radio::after{opacity:1}
+.odip-option-label{font-size:.88rem;font-weight:600;color:var(--text)}
+.odip-option-desc{font-size:.75rem;color:var(--text3);margin-top:2px}
+.odip-input-wrap{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:none}
+.odip-input-wrap.show{display:block}
+.odip-input-wrap input{width:100%;padding:12px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--sans);font-size:1.1rem;font-weight:600;color:var(--text);background:var(--surface2);outline:none;text-align:center;letter-spacing:.05em}
+.odip-input-wrap input:focus{border-color:var(--sage);box-shadow:0 0 0 3px rgba(61,122,94,.12)}
+
 /* LOADING */
 #loadingOverlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
 .spinner{width:36px;height:36px;border-radius:50%;border:3px solid rgba(61,122,94,.15);border-top-color:var(--sage);animation:spin .7s linear infinite}
@@ -176,7 +197,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   <div class="loading-txt">Loading your data…</div>
 </div>
 
-<!-- Setup — shown only on very first use -->
+<!-- Setup — shown only on very first use (legacy) -->
 <div id="setupScreen" style="display:none">
   <div class="setup-card">
     <div class="setup-icon">🏥</div>
@@ -193,6 +214,48 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   </div>
 </div>
 
+<!-- ════════════════════════════════════════════════════════════════
+     FEATURE 3: Startup ODIP Popup
+     Shown every time website opens
+═══════════════════════════════════════════════════════════════════ -->
+<div id="startupDlg" class="overlay" style="display:none">
+  <div class="dialog odip-dialog">
+    <div class="dialog-icon">🚀</div>
+    <h3>Start New Session</h3>
+    <p>Choose how you want to begin today's session. All previous sheets remain saved in history.</p>
+
+    <div class="odip-options">
+      <div class="odip-option" id="optContinue" onclick="selectOdipOption('continue')">
+        <div class="odip-option-radio"></div>
+        <div>
+          <div class="odip-option-label">Continue from Last ODIP</div>
+          <div class="odip-option-desc">Resume with ODIP <strong id="lastOdipDisplay">—</strong></div>
+        </div>
+      </div>
+
+      <div class="odip-option" id="optCustom" onclick="selectOdipOption('custom')">
+        <div class="odip-option-radio"></div>
+        <div>
+          <div class="odip-option-label">Start with Custom ODIP</div>
+          <div class="odip-option-desc">Set a specific starting number</div>
+        </div>
+      </div>
+
+      <div class="odip-input-wrap" id="customOdipWrap">
+        <input type="number" id="customOdipInput" placeholder="Enter ODIP number (e.g. 500)" min="1" max="999999">
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" onclick="closeStartupDlg()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmStartup()">
+        <svg viewBox="0 0 16 16"><path d="M3 8.5l4 4 6-7"/></svg>
+        Start Session
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- App -->
 <div id="app" style="display:none">
   <header class="hdr">
@@ -206,6 +269,20 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
       </div>
     </div>
     <div class="hdr-actions">
+      <!-- ═══════════════════════════════════════════════════════════
+           FEATURE 2: ODIP Control — Quick set button in header
+      ═══════════════════════════════════════════════════════════ -->
+      <button class="btn btn-odip" onclick="openOdipDialog()" title="Change ODIP">
+        <svg viewBox="0 0 16 16"><path d="M8 2v12M2 8h12"/></svg>
+        ODIP: <span id="headerOdip">—</span>
+      </button>
+      <!-- ═══════════════════════════════════════════════════════════
+           FEATURE 4: New Excel File Button
+      ═══════════════════════════════════════════════════════════ -->
+      <button class="btn btn-newfile" onclick="createNewExcelFile()" title="Start New Excel File">
+        <svg viewBox="0 0 16 16"><path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M9 2l4 4M9 2v4h4"/></svg>
+        New Excel
+      </button>
       <button class="btn btn-dl" onclick="downloadExcel()">
         <svg viewBox="0 0 16 16"><path d="M8 2v9M4 7l4 4 4-4M2 13h12"/></svg>
         Download Excel
@@ -300,14 +377,41 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   </div>
 </div>
 
+<!-- ════════════════════════════════════════════════════════════════
+     FEATURE 2: ODIP Change Dialog (inline, anytime)
+═══════════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="odipDlg" style="display:none">
+  <div class="dialog odip-dialog">
+    <div class="dialog-icon">🔢</div>
+    <h3>Change ODIP Number</h3>
+    <p>Set a new starting ODIP. Future entries will auto-increment from this number.</p>
+    <div class="setup-field" style="margin-bottom:20px">
+      <label>New ODIP Number</label>
+      <input type="number" id="newOdipInput" class="setup-input" min="1" max="999999" placeholder="e.g. 500">
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" onclick="closeOdipDlg()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewOdip()">
+        <svg viewBox="0 0 16 16"><path d="M3 8.5l4 4 6-7"/></svg>
+        Update ODIP
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
-/* ══════════════════════════════════════════════════
-   CLINIC REGISTER — PostgreSQL persistent storage
-   Data survives server restarts, redeploys, forever
-══════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   CLINIC REGISTER v2.0 — All Features Integrated
+   Feature 1: Auto New Session
+   Feature 2: ODIP Control System
+   Feature 3: Startup ODIP Popup
+   Feature 4: New Excel File Control
+   Feature 5: History System (enhanced)
+═══════════════════════════════════════════════════════════════════ */
 
 let state       = null;
 let activeSheet = 0;
+let startupChoice = 'continue'; // 'continue' or 'custom'
 
 // ── Boot ─────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
@@ -318,12 +422,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     hide('loadingOverlay');
 
     if (!state.configured) {
+      // First time ever — show legacy setup
       show('setupScreen');
     } else {
-      activeSheet = state.sheets.length - 1;
-      show('app');
-      render();
-      focusInput();
+      // ═══════════════════════════════════════════════════════════
+      // FEATURE 1 + 3: Show startup dialog, auto-create session
+      // ═══════════════════════════════════════════════════════════
+      showStartupDialog();
     }
   } catch(e) {
     hide('loadingOverlay');
@@ -336,9 +441,172 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('odipInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') submitSetup();
   });
+  document.getElementById('customOdipInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmStartup();
+  });
+  document.getElementById('newOdipInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveNewOdip();
+  });
 });
 
-// ── Setup ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 3: Startup ODIP Popup
+// ═══════════════════════════════════════════════════════════════════
+function showStartupDialog() {
+  document.getElementById('lastOdipDisplay').textContent = state.nextOdip;
+  startupChoice = 'continue';
+  updateOdipOptionUI();
+  show('startupDlg');
+}
+
+function selectOdipOption(choice) {
+  startupChoice = choice;
+  updateOdipOptionUI();
+}
+
+function updateOdipOptionUI() {
+  document.getElementById('optContinue').classList.toggle('selected', startupChoice === 'continue');
+  document.getElementById('optCustom').classList.toggle('selected', startupChoice === 'custom');
+  document.getElementById('customOdipWrap').classList.toggle('show', startupChoice === 'custom');
+  if (startupChoice === 'custom') {
+    setTimeout(() => document.getElementById('customOdipInput').focus(), 100);
+  }
+}
+
+function closeStartupDlg() {
+  hide('startupDlg');
+  // Even if cancelled, still create new session with current ODIP
+  createNewSession();
+}
+
+async function confirmStartup() {
+  if (startupChoice === 'custom') {
+    const val = parseInt(document.getElementById('customOdipInput').value, 10);
+    if (!val || val < 1 || val > 999999) {
+      toast('Enter a valid ODIP number', 'err');
+      return;
+    }
+    // Set custom ODIP
+    try {
+      const r = await fetch('/api/odip/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ odip: val })
+      });
+      if (!r.ok) throw new Error('Failed to set ODIP');
+      const data = await r.json();
+      state.nextOdip = data.nextOdip;
+      toast('ODIP set to ' + val, 'ok');
+    } catch(e) {
+      toast(e.message, 'err');
+      return;
+    }
+  }
+  hide('startupDlg');
+
+const alreadyStarted = sessionStorage.getItem('sessionStarted');
+
+if (!alreadyStarted) {
+  await createNewSession();
+  sessionStorage.setItem('sessionStarted', 'yes');
+} else {
+  show('app');
+  activeSheet = state.sheets.length - 1;
+  render();
+  focusInput();
+}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 1: Auto New Session on Website Open
+// ═══════════════════════════════════════════════════════════════════
+async function createNewSession() {
+  try {
+    const res = await fetch('/api/session', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    // Reload state to get fresh data with new sheet
+    const full = await fetch('/api/state');
+    state = await full.json();
+
+    // Auto-activate the newest sheet (last one)
+    activeSheet = state.sheets.length - 1;
+
+    show('app');
+    render();
+    focusInput();
+    toast('New session started — ' + data.sheetName, 'ok');
+  } catch(e) {
+    toast('Failed to create session: ' + e.message, 'err');
+    // Fallback: show app anyway
+    show('app');
+    activeSheet = state.sheets.length - 1;
+    render();
+    focusInput();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 2: ODIP Control System (inline dialog)
+// ═══════════════════════════════════════════════════════════════════
+function openOdipDialog() {
+  document.getElementById('newOdipInput').value = state.nextOdip;
+  show('odipDlg');
+  setTimeout(() => document.getElementById('newOdipInput').focus(), 100);
+}
+
+function closeOdipDlg() {
+  hide('odipDlg');
+}
+
+async function saveNewOdip() {
+  const val = parseInt(document.getElementById('newOdipInput').value, 10);
+  if (!val || val < 1 || val > 999999) {
+    toast('Enter a valid ODIP number', 'err');
+    return;
+  }
+  try {
+    const r = await fetch('/api/odip/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ odip: val })
+    });
+    if (!r.ok) throw new Error('Failed to update ODIP');
+    const data = await r.json();
+    state.nextOdip = data.nextOdip;
+    closeOdipDlg();
+    render();
+    toast('ODIP updated to ' + val + ' — auto-increment active', 'ok');
+  } catch(e) {
+    toast(e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 4: New Excel File Control
+// ═══════════════════════════════════════════════════════════════════
+async function createNewExcelFile() {
+  if (!confirm('Create a completely new Excel file?\n\nA new empty sheet will be created. All old data remains saved in history.')) return;
+  try {
+    const res = await fetch('/api/excel/new', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    // Reload state
+    const full = await fetch('/api/state');
+    state = await full.json();
+    activeSheet = state.sheets.length - 1;
+
+    render();
+    focusInput();
+    toast('New Excel file started — ' + data.sheetName, 'ok');
+  } catch(e) {
+    toast('Failed to create new Excel file', 'err');
+  }
+}
+
+// ── Setup (legacy) ────────────────────────────────────────────────
 async function submitSetup() {
   const val = parseInt(document.getElementById('odipInput').value, 10);
   if (!val || val < 1 || val > 999999) { toast('Enter a valid ODIP number', 'err'); return; }
@@ -352,11 +620,8 @@ async function submitSetup() {
     const res = await fetch('/api/state');
     state = await res.json();
     hide('setupScreen');
-    show('app');
-    activeSheet = 0;
-    render();
-    focusInput();
-    toast('ODIP starts from ' + val + ' — all set!', 'ok');
+    // After first setup, show startup dialog for session creation
+    showStartupDialog();
   } catch(e) { toast(e.message, 'err'); }
 }
 
@@ -375,17 +640,16 @@ async function savePatient() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-  name,
-  sheetId: state.sheets[activeSheet].id
-})
+        name,
+        sheetId: state.sheets[activeSheet].id
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    // Add to last sheet in local state
-    state.sheets[state.sheets.length - 1].patients.push(data.patient);
+    state.sheets[activeSheet].patients.push(data.patient);
     state.nextOdip = data.nextOdip;
-  
+
     render();
     input.value = '';
     focusInput();
@@ -395,17 +659,39 @@ async function savePatient() {
 }
 
 // ── Undo last ─────────────────────────────────────────────────────
+// ── Undo last ─────────────────────────────────────────────────────
 async function undoLast() {
+
   try {
-    const res  = await fetch('/api/patient/last', { method: 'DELETE' });
+
+    const res = await fetch('/api/patient/last', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sheetId: state.sheets[activeSheet].id
+      })
+    });
+
     const data = await res.json();
+
     if (!res.ok) throw new Error(data.error);
-    state.sheets[state.sheets.length - 1].patients.pop();
+
+    state.sheets[activeSheet].patients.pop();
+
     state.nextOdip = data.nextOdip;
-    activeSheet    = state.sheets.length - 1;
+
     render();
+
     toast('Removed "' + data.removed.name + '"', 'info');
-  } catch(e) { toast(e.message, 'info'); }
+
+  } catch(e) {
+
+    toast(e.message, 'info');
+
+  }
+
 }
 
 // ── Delete patient by DB id ───────────────────────────────────────
@@ -414,7 +700,6 @@ async function deletePatient(patientId, patientName) {
   try {
     const res = await fetch('/api/patient/' + patientId, { method: 'DELETE' });
     if (!res.ok) throw new Error('Delete failed');
-    // Reload full state — ODIP renumbering happened on server
     const full = await fetch('/api/state');
     state = await full.json();
     render();
@@ -432,20 +717,15 @@ async function createSheet() {
     const res  = await fetch('/api/sheet', { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-   state.sheets.push({
-  id: data.sheetId,
-  name: data.sheetName,
-  patients: []
-});
-
-// make new sheet active
-activeSheet = state.sheets.length - 1;
-
-render();
-
-focusInput();
-
-toast(data.sheetName + ' created', 'ok');
+    state.sheets.push({
+      id: data.sheetId,
+      name: data.sheetName,
+      patients: []
+    });
+    activeSheet = state.sheets.length - 1;
+    render();
+    focusInput();
+    toast(data.sheetName + ' created', 'ok');
   } catch(e) { toast('Failed to create sheet', 'err'); }
 }
 
@@ -456,48 +736,19 @@ function openRenameDialog(sheetId, currentName) {
   renameSheet(sheetId, newName.trim());
 }
 async function deleteSheet(sheetId, sheetName){
-
-if(!confirm(
-'Delete "'+sheetName+'" ?'
-)) return;
-
-try{
-
-const res=await fetch(
-'/api/sheet/'+sheetId,
-{
-method:'DELETE'
-}
-);
-
-const data=await res.json();
-
-if(!res.ok)
-throw new Error(data.error);
-
-const full=
-await fetch('/api/state');
-
-state=await full.json();
-
-activeSheet=0;
-
-render();
-
-toast(
-sheetName+
-' deleted',
-'info'
-);
-
-}catch(e){
-
-toast(
-e.message,
-'err'
-);
-
-}
+  if(!confirm('Delete "'+sheetName+'" ?')) return;
+  try{
+    const res=await fetch('/api/sheet/'+sheetId, {method:'DELETE'});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error);
+    const full=await fetch('/api/state');
+    state=await full.json();
+    activeSheet=0;
+    render();
+    toast(sheetName+' deleted', 'info');
+  }catch(e){
+    toast(e.message, 'err');
+  }
 }
 
 async function renameSheet(sheetId, newName) {
@@ -509,7 +760,6 @@ async function renameSheet(sheetId, newName) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    // Update local state
     const sh = state.sheets.find(s => s.id === sheetId);
     if (sh) sh.name = data.name;
     render();
@@ -526,6 +776,9 @@ function downloadExcel() {
 // ── Render ────────────────────────────────────────────────────────
 function render() {
   if (!state) return;
+
+  // Update header ODIP display
+  document.getElementById('headerOdip').textContent = state.nextOdip;
 
   // Tabs
   const tabsEl = document.getElementById('tabs');
@@ -549,24 +802,16 @@ function render() {
     rBtn.onmouseout  = () => { rBtn.style.background='var(--surface)'; rBtn.style.color='var(--text3)'; rBtn.style.borderColor='var(--border2)'; };
     rBtn.onclick = (e) => { e.stopPropagation(); openRenameDialog(sh.id, sh.name); };
     tabsEl.appendChild(rBtn);
+
     const dBtn=document.createElement('button');
-
-dBtn.textContent='Delete';
-
-dBtn.style.cssText=
-'font-family:var(--sans);font-size:.68rem;padding:4px 10px;border:1px solid #ffbdbd;background:#fff0f0;color:red;border-radius:6px;cursor:pointer;margin-right:8px';
-
-dBtn.onclick=(e)=>{
-e.stopPropagation();
-
-deleteSheet(
-sh.id,
-sh.name
-);
-
-};
-
-tabsEl.appendChild(dBtn);
+    dBtn.textContent='Delete';
+    dBtn.style.cssText=
+    'font-family:var(--sans);font-size:.68rem;padding:4px 10px;border:1px solid #ffbdbd;background:#fff0f0;color:red;border-radius:6px;cursor:pointer;margin-right:8px';
+    dBtn.onclick=(e)=>{
+      e.stopPropagation();
+      deleteSheet(sh.id, sh.name);
+    };
+    tabsEl.appendChild(dBtn);
   });
 
   // Stats
