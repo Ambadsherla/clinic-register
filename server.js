@@ -7,7 +7,6 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ── PostgreSQL connection ──────────────────────────────────────────
-// Render gives you a DATABASE_URL environment variable automatically
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL
@@ -154,7 +153,6 @@ async function buildExcel(state) {
     ws.getColumn(3).width = 52;
     ws.getColumn(4).width = 12;
 
-    // Header — bold, size 13
     const hRow = ws.getRow(1);
     hRow.height = 22;
     ['ODIP No.', 'Patient Name', 'Treatment Givent', 'Amount'].forEach((h, i) => {
@@ -164,7 +162,6 @@ async function buildExcel(state) {
       c.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
-    // Data rows — plain, size 11
     sheet.patients.forEach(p => {
       const row  = ws.addRow([p.odip, p.name, p.treatment, p.amount]);
       row.height = 18;
@@ -177,7 +174,6 @@ async function buildExcel(state) {
       });
     });
 
-    // Total row — bold, size 14
     const totalRowNum   = sheet.patients.length + 2;
     const totalVal      = sheet.patients.reduce((s, p) => s + p.amount, 0);
     const tRow          = ws.getRow(totalRowNum);
@@ -194,7 +190,6 @@ async function buildExcel(state) {
     ws.views = [{ state: 'frozen', ySplit: 1 }];
   }
 
-  // Write to buffer and return — no file system needed
   const buffer = await wb.xlsx.writeBuffer();
   return buffer;
 }
@@ -206,7 +201,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-// ── API Routes ─────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════════
+//  API ROUTES
+// ═══════════════════════════════════════════════════════════════════
 
 // GET full state
 app.get('/api/state', async (req, res) => {
@@ -218,7 +216,7 @@ app.get('/api/state', async (req, res) => {
   }
 });
 
-// POST first-time ODIP setup
+// POST first-time ODIP setup (legacy - kept for compatibility)
 app.post('/api/setup', async (req, res) => {
   const { startOdip } = req.body;
   if (!startOdip || startOdip < 1) return res.status(400).json({ error: 'Invalid ODIP' });
@@ -233,25 +231,117 @@ app.post('/api/setup', async (req, res) => {
   }
 });
 
-// POST add patient to last sheet
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 1: Auto New Session on Website Open
+//  POST /api/session — creates new empty sheet, auto-increments position
+// ═══════════════════════════════════════════════════════════════════
+app.post('/api/session', async (req, res) => {
+  try {
+    // Get current max position
+    const posRes = await pool.query('SELECT COALESCE(MAX(position), 0) as maxpos FROM sheets');
+    const position = parseInt(posRes.rows[0].maxpos) + 1;
+
+    // Generate date-based name
+    const now = new Date();
+    const dateStr = now.getDate() + '-' + (now.getMonth() + 1) + '-' + now.getFullYear();
+    const name = dateStr;
+
+    const shRes = await pool.query(
+      'INSERT INTO sheets (name, position) VALUES ($1, $2) RETURNING *',
+      [name, position]
+    );
+
+    res.json({ 
+      ok: true, 
+      sheetId: shRes.rows[0].id, 
+      sheetName: shRes.rows[0].name 
+    });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 2: ODIP Control System
+//  POST /api/odip/set — manually set starting ODIP
+// ═══════════════════════════════════════════════════════════════════
+app.post('/api/odip/set', async (req, res) => {
+  const { odip } = req.body;
+  if (!odip || odip < 1 || odip > 999999) {
+    return res.status(400).json({ error: 'Invalid ODIP number' });
+  }
+  try {
+    await pool.query(
+      'UPDATE clinic_config SET next_odip = $1, configured = true',
+      [odip]
+    );
+    res.json({ ok: true, nextOdip: odip });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET current ODIP info
+app.get('/api/odip', async (req, res) => {
+  try {
+    const cfgRes = await pool.query('SELECT next_odip, start_odip FROM clinic_config LIMIT 1');
+    const cfg = cfgRes.rows[0];
+    res.json({ 
+      nextOdip: cfg.next_odip, 
+      startOdip: cfg.start_odip 
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 4: New Excel File Control
+//  POST /api/excel/new — creates new Excel file (new DB state)
+// ═══════════════════════════════════════════════════════════════════
+app.post('/api/excel/new', async (req, res) => {
+  try {
+    // Keep all existing sheets but create a fresh "working" context
+    // We create a new sheet as the active working sheet
+    const posRes = await pool.query('SELECT COALESCE(MAX(position), 0) as maxpos FROM sheets');
+    const position = parseInt(posRes.rows[0].maxpos) + 1;
+
+    const now = new Date();
+    const dateStr = now.getDate() + '-' + (now.getMonth() + 1) + '-' + now.getFullYear();
+    const name = dateStr + ' (New File)';
+
+    const shRes = await pool.query(
+      'INSERT INTO sheets (name, position) VALUES ($1, $2) RETURNING *',
+      [name, position]
+    );
+
+    res.json({ 
+      ok: true, 
+      sheetId: shRes.rows[0].id, 
+      sheetName: shRes.rows[0].name 
+    });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST add patient to selected sheet
 app.post('/api/patient', async (req, res) => {
-const { name, sheetId } = req.body;
+  const { name, sheetId } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   try {
-    // Get last sheet
-   // Get selected sheet
-const shRes = await pool.query(
-  'SELECT * FROM sheets WHERE id = $1',
-  [sheetId]
-);
+    const shRes = await pool.query(
+      'SELECT * FROM sheets WHERE id = $1',
+      [sheetId]
+    );
+    const sheet = shRes.rows[0];
+    if (!sheet) return res.status(404).json({ error: 'Sheet not found' });
 
-const sheet = shRes.rows[0];
-
-    // Get current nextOdip
     const cfgRes = await pool.query('SELECT next_odip FROM clinic_config LIMIT 1');
     const nextOdip = cfgRes.rows[0].next_odip;
 
-    // Count existing patients in this sheet for position
     const countRes = await pool.query('SELECT COUNT(*) FROM patients WHERE sheet_id = $1', [sheet.id]);
     const position = parseInt(countRes.rows[0].count) + 1;
 
@@ -262,7 +352,6 @@ const sheet = shRes.rows[0];
     );
     const patient = pRes.rows[0];
 
-    // Increment nextOdip
     await pool.query('UPDATE clinic_config SET next_odip = next_odip + 1');
     const newNext = nextOdip + 1;
 
@@ -277,14 +366,16 @@ const sheet = shRes.rows[0];
 });
 
 // DELETE last patient (undo)
-// DELETE last patient (undo)
 app.delete('/api/patient/last', async (req, res) => {
   try {
+    const { sheetId } = req.body;
 
-    const shRes = await pool.query(
-      'SELECT * FROM sheets ORDER BY position DESC LIMIT 1'
-    );
+const shRes = await pool.query(
+  'SELECT * FROM sheets WHERE id = $1',
+  [sheetId]
+);
 
+const sheet = shRes.rows[0];
     const sheet = shRes.rows[0];
 
     const pRes = await pool.query(
@@ -293,125 +384,54 @@ app.delete('/api/patient/last', async (req, res) => {
     );
 
     if(pRes.rows.length === 0){
-      return res.status(400).json({
-        error:'No patients to undo'
-      });
+      return res.status(400).json({ error:'No patients to undo' });
     }
 
     const patient = pRes.rows[0];
-
-    await pool.query(
-      'DELETE FROM patients WHERE id=$1',
-      [patient.id]
-    );
-
-    await pool.query(
-      'UPDATE clinic_config SET next_odip = next_odip - 1'
-    );
-
-    const cfgRes = await pool.query(
-      'SELECT next_odip FROM clinic_config LIMIT 1'
-    );
+    await pool.query('DELETE FROM patients WHERE id=$1', [patient.id]);
+    await pool.query('UPDATE clinic_config SET next_odip = next_odip - 1');
+    const cfgRes = await pool.query('SELECT next_odip FROM clinic_config LIMIT 1');
 
     res.json({
       ok:true,
       removed:patient,
       nextOdip:cfgRes.rows[0].next_odip
     });
-
   } catch(e){
-
     console.error(e);
-
-    res.status(500).json({
-      error:e.message
-    });
-
+    res.status(500).json({ error:e.message });
   }
 });
+
 // PATCH rename sheet
 app.patch('/api/sheet/:id/rename', async (req, res) => {
-
-const { name } = req.body;
-
-if(!name || !name.trim())
-return res.status(400).json({
-error:'Name cannot be empty'
+  const { name } = req.body;
+  if(!name || !name.trim())
+    return res.status(400).json({ error:'Name cannot be empty' });
+  try{
+    await pool.query('UPDATE sheets SET name=$1 WHERE id=$2', [name.trim(),req.params.id]);
+    res.json({ ok:true, name:name.trim() });
+  }catch(e){
+    res.status(500).json({ error:e.message });
+  }
 });
-
-try{
-
-await pool.query(
-'UPDATE sheets SET name=$1 WHERE id=$2',
-[name.trim(),req.params.id]
-);
-
-res.json({
-ok:true,
-name:name.trim()
-});
-
-}catch(e){
-
-res.status(500).json({
-error:e.message
-});
-
-}
-
-});
-
 
 // DELETE sheet
 app.delete('/api/sheet/:id', async (req,res)=>{
-
-try{
-
-const id=parseInt(req.params.id);
-
-const countRes=
-await pool.query(
-'SELECT COUNT(*) FROM sheets'
-);
-
-if(parseInt(
-countRes.rows[0].count
-)<=1){
-
-return res.status(400).json({
-error:'Cannot delete last sheet'
-});
-
-}
-
-await pool.query(
-'DELETE FROM sheets WHERE id=$1',
-[id]
-);
-
-const cfg=
-await pool.query(
-'SELECT start_odip FROM clinic_config LIMIT 1'
-);
-
-await renumberOdips(
-cfg.rows[0].start_odip
-);
-
-res.json({
-ok:true
-});
-
-}catch(e){
-
-console.log(e);
-
-res.status(500).json({
-error:e.message
-});
-
-}
-
+  try{
+    const id=parseInt(req.params.id);
+    const countRes = await pool.query('SELECT COUNT(*) FROM sheets');
+    if(parseInt(countRes.rows[0].count)<=1){
+      return res.status(400).json({ error:'Cannot delete last sheet' });
+    }
+    await pool.query('DELETE FROM sheets WHERE id=$1', [id]);
+    const cfg = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
+    await renumberOdips(cfg.rows[0].start_odip);
+    res.json({ ok:true });
+  }catch(e){
+    console.log(e);
+    res.status(500).json({ error:e.message });
+  }
 });
 
 // DELETE specific patient by DB id
@@ -419,19 +439,15 @@ app.delete('/api/patient/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     await pool.query('DELETE FROM patients WHERE id = $1', [id]);
-
-    // Re-number all ODIPs
-    const cfgRes   = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
-    const startOdip = cfgRes.rows[0].start_odip;
-    await renumberOdips(startOdip);
-
+    const cfgRes = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
+    await renumberOdips(cfgRes.rows[0].start_odip);
     res.json({ ok: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// POST create new sheet
+// POST create new sheet (manual)
 app.post('/api/sheet', async (req, res) => {
   try {
     const countRes = await pool.query('SELECT COUNT(*) FROM sheets');
@@ -446,8 +462,6 @@ app.post('/api/sheet', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
-
 
 // GET download Excel
 app.get('/api/download', async (req, res) => {
