@@ -374,7 +374,10 @@ async function savePatient() {
     const res  = await fetch('/api/patient', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name })
+      body: JSON.stringify({
+  name,
+  sheetId: state.sheets[activeSheet].id
+})
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -430,7 +433,7 @@ async function createSheet() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     state.sheets.push({ id: data.sheetId, name: data.sheetName, patients: [] });
-    activeSheet = state.sheets.length - 1;
+  
     render();
     focusInput();
     toast(data.sheetName + ' created', 'ok');
