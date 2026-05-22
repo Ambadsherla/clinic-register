@@ -374,7 +374,10 @@ async function savePatient() {
     const res  = await fetch('/api/patient', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name })
+      body: JSON.stringify({
+  name,
+  sheetId: state.sheets[activeSheet].id
+})
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
