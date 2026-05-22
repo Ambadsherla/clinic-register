@@ -1,480 +1,624 @@
-const express  = require('express');
-const ExcelJS  = require('exceljs');
-const path     = require('path');
-const { Pool } = require('pg');
-
-const app  = express();
-const PORT = process.env.PORT || 3000;
-
-// ── PostgreSQL connection ──────────────────────────────────────────
-// Render gives you a DATABASE_URL environment variable automatically
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL
-    ? { rejectUnauthorized: false }
-    : false
-});
-
-// ── Create tables if they don't exist ─────────────────────────────
-async function initDB() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS clinic_config (
-      id         SERIAL PRIMARY KEY,
-      configured BOOLEAN   DEFAULT false,
-      start_odip INTEGER   DEFAULT 1,
-      next_odip  INTEGER   DEFAULT 1
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS sheets (
-      id         SERIAL PRIMARY KEY,
-      name       TEXT NOT NULL,
-      position   INTEGER NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS patients (
-      id         SERIAL PRIMARY KEY,
-      sheet_id   INTEGER REFERENCES sheets(id) ON DELETE CASCADE,
-      odip       INTEGER NOT NULL,
-      name       TEXT    NOT NULL,
-      treatment  TEXT    NOT NULL,
-      amount     INTEGER NOT NULL,
-      position   INTEGER NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `);
-
-  // Insert default config row if none exists
-  const cfg = await pool.query('SELECT id FROM clinic_config LIMIT 1');
-  if (cfg.rows.length === 0) {
-    await pool.query('INSERT INTO clinic_config (configured, start_odip, next_odip) VALUES (false, 1, 1)');
-  }
-
-  // Insert default Sheet 1 if no sheets exist
-  const sh = await pool.query('SELECT id FROM sheets LIMIT 1');
-  if (sh.rows.length === 0) {
-    await pool.query("INSERT INTO sheets (name, position) VALUES ('Sheet 1', 1)");
-  }
-
-  console.log('  ✅  Database ready');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinic Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:          #F7F5F0;
+  --bg2:         #EFEDE7;
+  --surface:     #FFFFFF;
+  --surface2:    #FAFAF8;
+  --border:      #DDD9D0;
+  --border2:     #C8C4BB;
+  --sage:        #3D7A5E;
+  --sage2:       #2E6049;
+  --sage-bg:     #EAF4EE;
+  --sage-border: #B8DEC9;
+  --blue:        #2B5797;
+  --blue-bg:     #EBF0F9;
+  --amber:       #B45309;
+  --amber-bg:    #FEF3E2;
+  --red:         #C0392B;
+  --red-bg:      #FDECEA;
+  --text:        #1C1C1A;
+  --text2:       #4A4844;
+  --text3:       #7A7772;
+  --text4:       #A8A4A0;
+  --shadow:      0 1px 4px rgba(28,28,26,.07),0 4px 16px rgba(28,28,26,.05);
+  --shadow-sm:   0 1px 3px rgba(28,28,26,.08);
+  --r:8px; --rl:14px;
+  --sans:'Plus Jakarta Sans',system-ui,sans-serif;
+  --serif:'Lora',Georgia,serif;
 }
+html{font-size:14px}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh}
 
-// ── All 17 Treatments ──────────────────────────────────────────────
-const TREATMENTS = [
-  { name: 'PA-Para, Amox260, Famtab, Avil',              amount: 70  },
-  { name: 'DicloMR, Neurobin, OMez, Dexa',               amount: 70  },
-  { name: 'Dr-Dressing, grocin BC, cpm, dexa',           amount: 120 },
-  { name: 'Nimupara, Famtab, Levocetriza, Amox260',      amount: 70  },
-  { name: 'Aceclopara, nuvit, famtab, dexa',             amount: 70  },
-  { name: 'inj Rantac, cyclpam, omez, metro, dexa',      amount: 140 },
-  { name: 'small cpm, depin, dexa',                      amount: 50  },
-  { name: 'Aceclopara, Neurobin, Famtab, dexa',          amount: 70  },
-  { name: 'cyclpam, pipajam, famtab, dexa',              amount: 70  },
-  { name: 'Nimupara, famtab, stemetil, neurobin',        amount: 70  },
-  { name: 'inj.cyna, diclopara, metro, famtab, cetriza', amount: 140 },
-  { name: 'inj.cyna, Ibupura, Avil, Amox260, Dexa',     amount: 140 },
-  { name: 'para cpm, depin, Amox, kid',                  amount: 50  },
-  { name: 'AcekindSP, BCCap, Amox260, Dexa',            amount: 70  },
-  { name: 'inj.dexa, Cetriza, ADCap, Amox260, Dexa',    amount: 140 },
-  { name: 'AT-Anticold, Demin, Dexa, Amox260',          amount: 70  },
-  { name: 'Para depin, Dexa, Amox, kid',                amount: 50  },
-];
+/* SETUP */
+#setupScreen{position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
+.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:0 8px 40px rgba(28,28,26,.12);padding:48px 52px;max-width:460px;width:100%;text-align:center}
+.setup-icon{width:64px;height:64px;border-radius:16px;background:var(--sage-bg);border:1px solid var(--sage-border);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:28px}
+.setup-title{font-family:var(--serif);font-size:1.75rem;color:var(--text);margin-bottom:8px}
+.setup-sub{font-size:.88rem;color:var(--text3);line-height:1.6;margin-bottom:32px}
+.setup-field{text-align:left;margin-bottom:20px}
+.setup-field label{display:block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.setup-input{width:100%;padding:14px 18px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--sans);font-size:1.5rem;font-weight:600;color:var(--text);background:var(--surface2);outline:none;text-align:center;letter-spacing:.1em;transition:border-color .18s,box-shadow .18s}
+.setup-input:focus{border-color:var(--sage);box-shadow:0 0 0 3px rgba(61,122,94,.12)}
+.setup-note{font-size:.78rem;color:var(--text3);background:var(--amber-bg);border:1px solid rgba(180,83,9,.15);border-radius:var(--r);padding:10px 14px;margin-bottom:28px;line-height:1.55;text-align:left}
+.setup-note strong{color:var(--amber)}
+.btn-setup{width:100%;padding:14px;background:var(--sage);color:white;border:none;border-radius:var(--r);font-family:var(--sans);font-size:.92rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .18s}
+.btn-setup:hover{background:var(--sage2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(61,122,94,.3)}
 
-function randTreatment() {
-  return TREATMENTS[Math.floor(Math.random() * TREATMENTS.length)];
+/* HEADER */
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow-sm)}
+.hdr-brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:36px;height:36px;border-radius:9px;background:var(--sage);display:flex;align-items:center;justify-content:center}
+.brand-mark svg{width:18px;height:18px;stroke:white;fill:none;stroke-width:2.5;stroke-linecap:round}
+.brand-name{font-family:var(--serif);font-size:1.25rem;color:var(--text);line-height:1}
+.brand-sub{font-size:.68rem;color:var(--text4);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.hdr-actions{display:flex;gap:8px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--sans);font-weight:600;font-size:.78rem;letter-spacing:.03em;padding:7px 16px;border-radius:var(--r);border:1px solid;cursor:pointer;transition:all .16s;white-space:nowrap}
+.btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.btn-primary{background:var(--sage);color:white;border-color:var(--sage)}
+.btn-primary:hover{background:var(--sage2);box-shadow:0 3px 12px rgba(61,122,94,.25);transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:transparent;color:var(--text2);border-color:var(--border2)}
+.btn-ghost:hover{background:var(--bg2);color:var(--text)}
+.btn-dl{background:var(--blue-bg);color:var(--blue);border-color:rgba(43,87,151,.2)}
+.btn-dl:hover{background:#dce7f5;border-color:rgba(43,87,151,.4)}
+.btn-del{background:transparent;color:var(--text4);border-color:var(--border);padding:4px 9px;font-size:.7rem}
+.btn-del:hover{color:var(--red);border-color:rgba(192,57,43,.3);background:var(--red-bg)}
+
+/* LAYOUT */
+.main{max-width:1100px;margin:0 auto;padding:28px 28px 80px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+.page-heading{font-family:var(--serif);font-size:1.7rem;color:var(--text);font-style:italic}
+.odip-badge{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:var(--sage-bg);color:var(--sage);border:1px solid var(--sage-border);padding:3px 10px;border-radius:99px;margin-top:6px;display:inline-block}
+.topbar-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* STATS */
+.stats-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;min-width:110px;box-shadow:var(--shadow-sm)}
+.stat-val{font-size:1.45rem;font-weight:700;color:var(--text);line-height:1}
+.stat-val.green{color:var(--sage)}
+.stat-lbl{font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-top:5px}
+
+/* TABS */
+.tabs-wrap{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.tab{font-size:.78rem;font-weight:600;letter-spacing:.04em;padding:6px 16px;border-radius:99px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);cursor:pointer;transition:all .15s}
+.tab:hover{border-color:var(--sage-border);color:var(--sage);background:var(--sage-bg)}
+.tab.active{background:var(--sage);color:white;border-color:var(--sage);box-shadow:0 2px 8px rgba(61,122,94,.2)}
+
+/* ENTRY */
+.entry-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rl);padding:18px 22px;margin-bottom:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;box-shadow:var(--shadow-sm);transition:border-color .2s,box-shadow .2s}
+.entry-card:focus-within{border-color:var(--sage);box-shadow:0 0 0 3px rgba(61,122,94,.1),var(--shadow-sm)}
+.entry-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--sage);white-space:nowrap;flex-shrink:0}
+.entry-input{flex:1;min-width:200px;padding:10px 14px;border:1px solid var(--border2);border-radius:var(--r);font-family:var(--sans);font-size:.95rem;color:var(--text);background:var(--bg);outline:none;transition:border-color .18s}
+.entry-input::placeholder{color:var(--text4)}
+.entry-input:focus{border-color:var(--sage);background:var(--surface)}
+.entry-hint{font-size:.72rem;color:var(--text4);white-space:nowrap}
+
+/* TABLE */
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;box-shadow:var(--shadow)}
+.table-hdr{padding:14px 22px 12px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.table-hdr-title{font-size:.78rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.1em}
+.table-hdr-count{font-size:.72rem;color:var(--text3)}
+.tbl{width:100%;border-collapse:collapse;font-size:.85rem}
+.tbl thead tr{background:var(--bg2)}
+.tbl th{padding:11px 18px;text-align:left;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);border-bottom:2px solid var(--border)}
+.tbl th.c{text-align:center} .tbl th.r{text-align:right}
+.tbl tbody tr{border-bottom:1px solid var(--bg2);transition:background .1s}
+.tbl tbody tr:hover{background:var(--sage-bg)}
+.tbl td{padding:10px 18px;vertical-align:middle}
+.td-odip{display:inline-block;background:var(--blue-bg);color:var(--blue);font-weight:700;font-size:.82rem;padding:3px 8px;border-radius:4px;letter-spacing:.04em}
+.td-name{font-weight:600;color:var(--text);font-size:.9rem}
+.td-treatment{color:var(--text2);font-size:.82rem;line-height:1.4}
+.td-amt{font-weight:700;color:var(--text);font-size:.9rem;text-align:right}
+.tbl tfoot tr{background:var(--bg2);border-top:2px solid var(--border)}
+.tbl tfoot td{padding:13px 18px}
+.total-label{font-size:.82rem;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:.1em;text-align:right}
+.total-amount{font-size:1.05rem;font-weight:800;color:var(--sage);text-align:right}
+
+/* EMPTY */
+.empty{padding:52px 24px;text-align:center}
+.empty-icon{font-size:2.2rem;opacity:.25;margin-bottom:12px}
+.empty-text{font-size:.85rem;color:var(--text3)}
+
+/* TOAST */
+.toasts{position:fixed;bottom:24px;right:24px;z-index:998;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:11px 16px;font-size:.82rem;color:var(--text2);max-width:320px;box-shadow:0 4px 20px rgba(28,28,26,.14);pointer-events:auto;animation:tIn .22s ease}
+.toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.toast--ok .toast-dot{background:var(--sage)}
+.toast--err .toast-dot{background:var(--red)}
+.toast--info .toast-dot{background:var(--text3)}
+@keyframes tIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes tOut{to{opacity:0;transform:translateY(6px)}}
+
+/* DIALOG */
+.overlay{position:fixed;inset:0;z-index:300;background:rgba(28,28,26,.45);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.dialog{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px 36px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(28,28,26,.18)}
+.dialog-icon{font-size:1.8rem;margin-bottom:12px}
+.dialog h3{font-family:var(--serif);font-size:1.25rem;color:var(--text);margin-bottom:8px}
+.dialog p{font-size:.85rem;color:var(--text3);line-height:1.6;margin-bottom:24px}
+.dialog-actions{display:flex;gap:10px;justify-content:flex-end}
+
+/* LOADING */
+#loadingOverlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.spinner{width:36px;height:36px;border-radius:50%;border:3px solid rgba(61,122,94,.15);border-top-color:var(--sage);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-size:.82rem;color:var(--text3);letter-spacing:.06em}
+
+@media(max-width:600px){
+  .main{padding:16px 14px 60px} .hdr{padding:0 14px}
+  .brand-sub{display:none}
+  .tbl th:nth-child(3),.tbl td:nth-child(3){display:none}
+  .setup-card{padding:32px 24px}
 }
-
-// ── Load full state from DB ────────────────────────────────────────
-async function loadState() {
-  const cfgRes = await pool.query('SELECT * FROM clinic_config LIMIT 1');
-  const cfg    = cfgRes.rows[0];
-
-  const sheetsRes = await pool.query('SELECT * FROM sheets ORDER BY position ASC');
-  const sheets    = [];
-
-  for (const sh of sheetsRes.rows) {
-    const pRes = await pool.query(
-      'SELECT * FROM patients WHERE sheet_id = $1 ORDER BY position ASC',
-      [sh.id]
-    );
-    sheets.push({
-      id:       sh.id,
-      name:     sh.name,
-      patients: pRes.rows.map(p => ({
-        id:        p.id,
-        odip:      p.odip,
-        name:      p.name,
-        treatment: p.treatment,
-        amount:    p.amount
-      }))
-    });
-  }
-
-  return {
-    configured: cfg.configured,
-    startOdip:  cfg.start_odip,
-    nextOdip:   cfg.next_odip,
-    sheets
-  };
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-6px)} 40%{transform:translateX(6px)}
+  60%{transform:translateX(-4px)} 80%{transform:translateX(3px)}
 }
+.shake{animation:shake .35s ease !important;border-color:var(--red) !important}
+</style>
+</head>
+<body>
 
-// ── Renumber all ODIPs from scratch ───────────────────────────────
-async function renumberOdips(startOdip) {
-  const sheetsRes = await pool.query('SELECT id FROM sheets ORDER BY position ASC');
-  let odip = startOdip;
-  for (const sh of sheetsRes.rows) {
-    const pRes = await pool.query(
-      'SELECT id FROM patients WHERE sheet_id = $1 ORDER BY position ASC',
-      [sh.id]
-    );
-    for (const p of pRes.rows) {
-      await pool.query('UPDATE patients SET odip = $1 WHERE id = $2', [odip, p.id]);
-      odip++;
+<!-- Loading -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-txt">Loading your data…</div>
+</div>
+
+<!-- Setup — shown only on very first use -->
+<div id="setupScreen" style="display:none">
+  <div class="setup-card">
+    <div class="setup-icon">🏥</div>
+    <h2 class="setup-title">Welcome to Clinic Register</h2>
+    <p class="setup-sub">Set your starting ODIP number once. Your data will be saved permanently in the database — it will be here every time you open this link.</p>
+    <div class="setup-field">
+      <label>Starting ODIP Number</label>
+      <input type="number" id="odipInput" class="setup-input" value="1" min="1" max="999999" placeholder="e.g. 6759">
+    </div>
+    <div class="setup-note">
+      <strong>One-time setup only.</strong> Data is stored in a PostgreSQL database. It never disappears — even if the server restarts.
+    </div>
+    <button class="btn-setup" onclick="submitSetup()">Start Using Register →</button>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" style="display:none">
+  <header class="hdr">
+    <div class="hdr-brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 18 18"><path d="M9 2v14M2 9h14"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Clinic Register</div>
+        <div class="brand-sub">Patient Management</div>
+      </div>
+    </div>
+    <div class="hdr-actions">
+      <button class="btn btn-dl" onclick="downloadExcel()">
+        <svg viewBox="0 0 16 16"><path d="M8 2v9M4 7l4 4 4-4M2 13h12"/></svg>
+        Download Excel
+      </button>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-heading">Patient Register</div>
+        <div class="odip-badge" id="nextBadge">Next ODIP: —</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" onclick="undoLast()">
+          <svg viewBox="0 0 16 16"><path d="M2 5.5h7a4.5 4.5 0 1 1 0 9H5M2 5.5L5 2.5M2 5.5L5 8.5"/></svg>
+          Undo Last
+        </button>
+        <button class="btn btn-ghost" onclick="openSheetDialog()">
+          <svg viewBox="0 0 16 16"><path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M9 2l4 4M9 2v4h4M8 8.5v5M5.5 11h5"/></svg>
+          New Sheet
+        </button>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val" id="sPat">0</div><div class="stat-lbl">Patients (Sheet)</div></div>
+      <div class="stat"><div class="stat-val green" id="sTotal">₹0</div><div class="stat-lbl">Sheet Total</div></div>
+      <div class="stat"><div class="stat-val" id="sSheets">1</div><div class="stat-lbl">Total Sheets</div></div>
+      <div class="stat"><div class="stat-val" id="sAll">0</div><div class="stat-lbl">All Patients</div></div>
+    </div>
+
+    <div class="tabs-wrap" id="tabs"></div>
+
+    <div class="entry-card">
+      <span class="entry-label">Patient Name</span>
+      <input type="text" id="nameInput" class="entry-input"
+        placeholder="Type patient name and press Enter…"
+        autocomplete="off" spellcheck="false">
+      <span class="entry-hint">Press Enter or →</span>
+      <button class="btn btn-primary" id="saveBtn" onclick="savePatient()">
+        <svg viewBox="0 0 16 16"><path d="M3 8.5l4 4 6-7"/></svg>
+        Save Patient
+      </button>
+    </div>
+
+    <div class="table-card">
+      <div class="table-hdr">
+        <span class="table-hdr-title" id="tableTitle">Sheet 1</span>
+        <span class="table-hdr-count" id="tableCount">0 entries</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th class="c" style="width:110px">ODIP No.</th>
+              <th>Patient Name</th>
+              <th>Treatment Given</th>
+              <th class="r" style="width:100px">Amount</th>
+              <th style="width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" class="total-label">TOTAL</td>
+              <td class="total-amount" id="totalAmt">₹0</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<!-- New Sheet Dialog -->
+<div class="overlay" id="sheetDlg" style="display:none">
+  <div class="dialog">
+    <div class="dialog-icon">📋</div>
+    <h3>Create New Sheet?</h3>
+    <p>The current sheet will be saved. A new empty sheet will be created and ODIP continues from where it left off.</p>
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" onclick="closeDlg()">Cancel</button>
+      <button class="btn btn-primary" onclick="createSheet()">
+        <svg viewBox="0 0 16 16"><path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M9 2l4 4M9 2v4h4"/></svg>
+        Create Sheet
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════
+   CLINIC REGISTER — PostgreSQL persistent storage
+   Data survives server restarts, redeploys, forever
+══════════════════════════════════════════════════ */
+
+let state       = null;
+let activeSheet = 0;
+
+// ── Boot ─────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/api/state');
+    if (!res.ok) throw new Error('Server error');
+    state = await res.json();
+    hide('loadingOverlay');
+
+    if (!state.configured) {
+      show('setupScreen');
+    } else {
+      activeSheet = state.sheets.length - 1;
+      show('app');
+      render();
+      focusInput();
     }
-  }
-  await pool.query('UPDATE clinic_config SET next_odip = $1', [odip]);
-  return odip;
-}
-
-// ── Build Excel ────────────────────────────────────────────────────
-async function buildExcel(state) {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = 'Clinic Register';
-
-  for (const sheet of state.sheets) {
-    if (!sheet.patients.length) continue;
-
-    const ws = wb.addWorksheet(sheet.name);
-    ws.getColumn(1).width = 12;
-    ws.getColumn(2).width = 28;
-    ws.getColumn(3).width = 52;
-    ws.getColumn(4).width = 12;
-
-    // Header — bold, size 13
-    const hRow = ws.getRow(1);
-    hRow.height = 22;
-    ['ODIP No.', 'Patient Name', 'Treatment Givent', 'Amount'].forEach((h, i) => {
-      const c     = hRow.getCell(i + 1);
-      c.value     = h;
-      c.font      = { bold: true, size: 13, name: 'Calibri' };
-      c.alignment = { horizontal: 'center', vertical: 'middle' };
-    });
-
-    // Data rows — plain, size 11
-    sheet.patients.forEach(p => {
-      const row  = ws.addRow([p.odip, p.name, p.treatment, p.amount]);
-      row.height = 18;
-      row.eachCell((cell, col) => {
-        cell.font      = { size: 11, name: 'Calibri' };
-        cell.alignment = {
-          vertical:   'middle',
-          horizontal: col === 1 || col === 4 ? 'center' : 'left'
-        };
-      });
-    });
-
-    // Total row — bold, size 14
-    const totalRowNum   = sheet.patients.length + 2;
-    const totalVal      = sheet.patients.reduce((s, p) => s + p.amount, 0);
-    const tRow          = ws.getRow(totalRowNum);
-    tRow.height         = 22;
-    const lc            = tRow.getCell(3);
-    lc.value            = 'Total';
-    lc.font             = { bold: true, size: 14, name: 'Calibri' };
-    lc.alignment        = { horizontal: 'center', vertical: 'middle' };
-    const ac            = tRow.getCell(4);
-    ac.value            = totalVal;
-    ac.font             = { bold: true, size: 14, name: 'Calibri' };
-    ac.alignment        = { horizontal: 'right', vertical: 'middle' };
-
-    ws.views = [{ state: 'frozen', ySplit: 1 }];
-  }
-
-  // Write to buffer and return — no file system needed
-  const buffer = await wb.xlsx.writeBuffer();
-  return buffer;
-}
-
-// ── Middleware ─────────────────────────────────────────────────────
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-// ── API Routes ─────────────────────────────────────────────────────
-
-// GET full state
-app.get('/api/state', async (req, res) => {
-  try {
-    res.json(await loadState());
   } catch(e) {
-    console.error(e);
-    res.status(500).json({ error: e.message });
+    hide('loadingOverlay');
+    alert('Cannot connect to server.\n\nCheck that the server is running and DATABASE_URL is set.');
   }
-});
 
-// POST first-time ODIP setup
-app.post('/api/setup', async (req, res) => {
-  const { startOdip } = req.body;
-  if (!startOdip || startOdip < 1) return res.status(400).json({ error: 'Invalid ODIP' });
-  try {
-    await pool.query(
-      'UPDATE clinic_config SET configured = true, start_odip = $1, next_odip = $1',
-      [startOdip]
-    );
-    res.json({ ok: true });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// POST add patient to last sheet
-app.post('/api/patient', async (req, res) => {
-const { name, sheetId } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
-  try {
-    // Get last sheet
-   // Get selected sheet
-const shRes = await pool.query(
-  'SELECT * FROM sheets WHERE id = $1',
-  [sheetId]
-);
-
-const sheet = shRes.rows[0];
-
-    // Get current nextOdip
-    const cfgRes = await pool.query('SELECT next_odip FROM clinic_config LIMIT 1');
-    const nextOdip = cfgRes.rows[0].next_odip;
-
-    // Count existing patients in this sheet for position
-    const countRes = await pool.query('SELECT COUNT(*) FROM patients WHERE sheet_id = $1', [sheet.id]);
-    const position = parseInt(countRes.rows[0].count) + 1;
-
-    const t = randTreatment();
-    const pRes = await pool.query(
-      'INSERT INTO patients (sheet_id, odip, name, treatment, amount, position) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-      [sheet.id, nextOdip, name.trim(), t.name, t.amount, position]
-    );
-    const patient = pRes.rows[0];
-
-    // Increment nextOdip
-    await pool.query('UPDATE clinic_config SET next_odip = next_odip + 1');
-    const newNext = nextOdip + 1;
-
-    res.json({
-      patient: { id: patient.id, odip: patient.odip, name: patient.name, treatment: patient.treatment, amount: patient.amount },
-      nextOdip: newNext
-    });
-  } catch(e) {
-    console.error(e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// DELETE last patient (undo)
-// DELETE last patient (undo)
-app.delete('/api/patient/last', async (req, res) => {
-  try {
-
-    const shRes = await pool.query(
-      'SELECT * FROM sheets ORDER BY position DESC LIMIT 1'
-    );
-
-    const sheet = shRes.rows[0];
-
-    const pRes = await pool.query(
-      'SELECT * FROM patients WHERE sheet_id=$1 ORDER BY position DESC LIMIT 1',
-      [sheet.id]
-    );
-
-    if(pRes.rows.length === 0){
-      return res.status(400).json({
-        error:'No patients to undo'
-      });
-    }
-
-    const patient = pRes.rows[0];
-
-    await pool.query(
-      'DELETE FROM patients WHERE id=$1',
-      [patient.id]
-    );
-
-    await pool.query(
-      'UPDATE clinic_config SET next_odip = next_odip - 1'
-    );
-
-    const cfgRes = await pool.query(
-      'SELECT next_odip FROM clinic_config LIMIT 1'
-    );
-
-    res.json({
-      ok:true,
-      removed:patient,
-      nextOdip:cfgRes.rows[0].next_odip
-    });
-
-  } catch(e){
-
-    console.error(e);
-
-    res.status(500).json({
-      error:e.message
-    });
-
-  }
-});
-// PATCH rename sheet
-app.patch('/api/sheet/:id/rename', async (req, res) => {
-
-const { name } = req.body;
-
-if(!name || !name.trim())
-return res.status(400).json({
-error:'Name cannot be empty'
-});
-
-try{
-
-await pool.query(
-'UPDATE sheets SET name=$1 WHERE id=$2',
-[name.trim(),req.params.id]
-);
-
-res.json({
-ok:true,
-name:name.trim()
-});
-
-}catch(e){
-
-res.status(500).json({
-error:e.message
-});
-
-}
-
-});
-
-
-// DELETE sheet
-app.delete('/api/sheet/:id', async (req,res)=>{
-
-try{
-
-const id=parseInt(req.params.id);
-
-const countRes=
-await pool.query(
-'SELECT COUNT(*) FROM sheets'
-);
-
-if(parseInt(
-countRes.rows[0].count
-)<=1){
-
-return res.status(400).json({
-error:'Cannot delete last sheet'
-});
-
-}
-
-await pool.query(
-'DELETE FROM sheets WHERE id=$1',
-[id]
-);
-
-const cfg=
-await pool.query(
-'SELECT start_odip FROM clinic_config LIMIT 1'
-);
-
-await renumberOdips(
-cfg.rows[0].start_odip
-);
-
-res.json({
-ok:true
-});
-
-}catch(e){
-
-console.log(e);
-
-res.status(500).json({
-error:e.message
-});
-
-}
-
-});
-
-// DELETE specific patient by DB id
-app.delete('/api/patient/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    await pool.query('DELETE FROM patients WHERE id = $1', [id]);
-
-    // Re-number all ODIPs
-    const cfgRes   = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
-    const startOdip = cfgRes.rows[0].start_odip;
-    await renumberOdips(startOdip);
-
-    res.json({ ok: true });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// POST create new sheet
-app.post('/api/sheet', async (req, res) => {
-  try {
-    const countRes = await pool.query('SELECT COUNT(*) FROM sheets');
-    const num      = parseInt(countRes.rows[0].count) + 1;
-    const position = num;
-    const shRes    = await pool.query(
-      'INSERT INTO sheets (name, position) VALUES ($1, $2) RETURNING *',
-      ['Sheet ' + num, position]
-    );
-    res.json({ sheetName: shRes.rows[0].name, sheetId: shRes.rows[0].id });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-
-app.patch('/api/sheet/:id/rename')
-  // DELETE sheet
-
-
-
-// GET download Excel
-app.get('/api/download', async (req, res) => {
-  try {
-    const state  = await loadState();
-    const buffer = await buildExcel(state);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="patients.xlsx"');
-    res.send(buffer);
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ── Start ──────────────────────────────────────────────────────────
-initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log('');
-    console.log('  ✅  Clinic Register running!');
-    console.log('  👉  Open: http://localhost:' + PORT);
-    console.log('');
+  document.getElementById('nameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') savePatient();
   });
-}).catch(err => {
-  console.error('DB init failed:', err);
-  process.exit(1);
+  document.getElementById('odipInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitSetup();
+  });
 });
+
+// ── Setup ─────────────────────────────────────────────────────────
+async function submitSetup() {
+  const val = parseInt(document.getElementById('odipInput').value, 10);
+  if (!val || val < 1 || val > 999999) { toast('Enter a valid ODIP number', 'err'); return; }
+  try {
+    const r = await fetch('/api/setup', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ startOdip: val })
+    });
+    if (!r.ok) throw new Error('Setup failed');
+    const res = await fetch('/api/state');
+    state = await res.json();
+    hide('setupScreen');
+    show('app');
+    activeSheet = 0;
+    render();
+    focusInput();
+    toast('ODIP starts from ' + val + ' — all set!', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ── Save patient ──────────────────────────────────────────────────
+async function savePatient() {
+  const input = document.getElementById('nameInput');
+  const name  = input.value.trim();
+  if (!name) {
+    input.classList.add('shake');
+    setTimeout(() => input.classList.remove('shake'), 400);
+    return;
+  }
+  document.getElementById('saveBtn').disabled = true;
+  try {
+    const res  = await fetch('/api/patient', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+  name,
+  sheetId: state.sheets[activeSheet].id
+})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    // Add to last sheet in local state
+    state.sheets[state.sheets.length - 1].patients.push(data.patient);
+    state.nextOdip = data.nextOdip;
+    activeSheet    = state.sheets.length - 1;
+    render();
+    input.value = '';
+    focusInput();
+    toast('Saved — ODIP ' + data.patient.odip, 'ok');
+  } catch(e) { toast(e.message || 'Save failed', 'err'); }
+  finally { document.getElementById('saveBtn').disabled = false; }
+}
+
+// ── Undo last ─────────────────────────────────────────────────────
+async function undoLast() {
+  try {
+    const res  = await fetch('/api/patient/last', { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    state.sheets[state.sheets.length - 1].patients.pop();
+    state.nextOdip = data.nextOdip;
+    activeSheet    = state.sheets.length - 1;
+    render();
+    toast('Removed "' + data.removed.name + '"', 'info');
+  } catch(e) { toast(e.message, 'info'); }
+}
+
+// ── Delete patient by DB id ───────────────────────────────────────
+async function deletePatient(patientId, patientName) {
+  if (!confirm('Remove "' + patientName + '"?')) return;
+  try {
+    const res = await fetch('/api/patient/' + patientId, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Delete failed');
+    // Reload full state — ODIP renumbering happened on server
+    const full = await fetch('/api/state');
+    state = await full.json();
+    render();
+    toast('"' + patientName + '" removed', 'info');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ── New sheet ─────────────────────────────────────────────────────
+function openSheetDialog() { show('sheetDlg'); }
+function closeDlg()         { hide('sheetDlg'); }
+
+async function createSheet() {
+  closeDlg();
+  try {
+    const res  = await fetch('/api/sheet', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    state.sheets.push({ id: data.sheetId, name: data.sheetName, patients: [] });
+    activeSheet = state.sheets.length - 1;
+    render();
+    focusInput();
+    toast(data.sheetName + ' created', 'ok');
+  } catch(e) { toast('Failed to create sheet', 'err'); }
+}
+
+// ── Rename sheet ──────────────────────────────────────────────────
+function openRenameDialog(sheetId, currentName) {
+  const newName = prompt('New name for "' + currentName + '":', currentName);
+  if (!newName || !newName.trim() || newName.trim() === currentName) return;
+  renameSheet(sheetId, newName.trim());
+}
+async function deleteSheet(sheetId, sheetName){
+
+if(!confirm(
+'Delete "'+sheetName+'" ?'
+)) return;
+
+try{
+
+const res=await fetch(
+'/api/sheet/'+sheetId,
+{
+method:'DELETE'
+}
+);
+
+const data=await res.json();
+
+if(!res.ok)
+throw new Error(data.error);
+
+const full=
+await fetch('/api/state');
+
+state=await full.json();
+
+activeSheet=0;
+
+render();
+
+toast(
+sheetName+
+' deleted',
+'info'
+);
+
+}catch(e){
+
+toast(
+e.message,
+'err'
+);
+
+}
+}
+
+async function renameSheet(sheetId, newName) {
+  try {
+    const res  = await fetch('/api/sheet/' + sheetId + '/rename', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name: newName })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    // Update local state
+    const sh = state.sheets.find(s => s.id === sheetId);
+    if (sh) sh.name = data.name;
+    render();
+    toast('Renamed to "' + data.name + '"', 'ok');
+  } catch(e) { toast(e.message || 'Rename failed', 'err'); }
+}
+
+// ── Download Excel ────────────────────────────────────────────────
+function downloadExcel() {
+  window.location.href = '/api/download';
+  toast('Downloading patients.xlsx…', 'ok');
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function render() {
+  if (!state) return;
+
+  // Tabs
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = '';
+  state.sheets.forEach((sh, i) => {
+    const b = document.createElement('button');
+    b.className   = 'tab' + (i === activeSheet ? ' active' : '');
+    b.textContent = sh.name + (sh.patients.length ? ' (' + sh.patients.length + ')' : '');
+    b.onclick = () => { activeSheet = i; render(); };
+    tabsEl.appendChild(b);
+
+    const rBtn = document.createElement('button');
+    rBtn.textContent = 'Rename';
+    rBtn.title       = 'Rename "' + sh.name + '"';
+    rBtn.style.cssText =
+      'font-family:var(--sans);font-size:.68rem;font-weight:600;' +
+      'padding:4px 10px;border-radius:6px;border:1px solid var(--border2);' +
+      'background:var(--surface);color:var(--text3);cursor:pointer;' +
+      'margin-left:2px;margin-right:8px;transition:all .15s;';
+    rBtn.onmouseover = () => { rBtn.style.background='var(--sage-bg)'; rBtn.style.color='var(--sage)'; rBtn.style.borderColor='var(--sage-border)'; };
+    rBtn.onmouseout  = () => { rBtn.style.background='var(--surface)'; rBtn.style.color='var(--text3)'; rBtn.style.borderColor='var(--border2)'; };
+    rBtn.onclick = (e) => { e.stopPropagation(); openRenameDialog(sh.id, sh.name); };
+    tabsEl.appendChild(rBtn);
+    const dBtn=document.createElement('button');
+
+dBtn.textContent='Delete';
+
+dBtn.style.cssText=
+'font-family:var(--sans);font-size:.68rem;padding:4px 10px;border:1px solid #ffbdbd;background:#fff0f0;color:red;border-radius:6px;cursor:pointer;margin-right:8px';
+
+dBtn.onclick=(e)=>{
+e.stopPropagation();
+
+deleteSheet(
+sh.id,
+sh.name
+);
+
+};
+
+tabsEl.appendChild(dBtn);
+  });
+
+  // Stats
+  const cur   = state.sheets[activeSheet];
+  const total = cur.patients.reduce((s, p) => s + p.amount, 0);
+  const allP  = state.sheets.reduce((s, sh) => s + sh.patients.length, 0);
+  document.getElementById('sPat').textContent      = cur.patients.length;
+  document.getElementById('sTotal').textContent    = '₹' + total.toLocaleString('en-IN');
+  document.getElementById('sSheets').textContent   = state.sheets.length;
+  document.getElementById('sAll').textContent      = allP;
+  document.getElementById('nextBadge').textContent = 'Next ODIP: ' + state.nextOdip;
+
+  // Table
+  const tbody = document.getElementById('tbody');
+  document.getElementById('tableTitle').textContent = cur.name;
+  document.getElementById('tableCount').textContent =
+    cur.patients.length + (cur.patients.length === 1 ? ' entry' : ' entries');
+  document.getElementById('totalAmt').textContent =
+    '₹' + total.toLocaleString('en-IN');
+
+  if (!cur.patients.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="5"><div class="empty">' +
+      '<div class="empty-icon">📋</div>' +
+      '<div class="empty-text">No patients yet on ' + esc(cur.name) + '. Type a name above and press Enter.</div>' +
+      '</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  cur.patients.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="text-align:center"><span class="td-odip">' + p.odip + '</span></td>' +
+      '<td><span class="td-name">'      + esc(p.name)      + '</span></td>' +
+      '<td><span class="td-treatment">' + esc(p.treatment) + '</span></td>' +
+      '<td><span class="td-amt">₹'     + p.amount         + '</span></td>' +
+      '<td style="text-align:center">' +
+        '<button class="btn btn-del" onclick="deletePatient(' + p.id + ',\'' + esc(p.name) + '\')" title="Remove">✕</button>' +
+      '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function show(id)     { document.getElementById(id).style.display = 'flex'; }
+function hide(id)     { document.getElementById(id).style.display = 'none'; }
+function focusInput() { setTimeout(() => document.getElementById('nameInput').focus(), 80); }
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = 'toast toast--' + type;
+  el.innerHTML = '<span class="toast-dot"></span><span>' + msg + '</span>';
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => {
+    el.style.animation = 'tOut .22s ease forwards';
+    setTimeout(() => el.remove(), 250);
+  }, 3000);
+}
+</script>
+</body>
+</html>
