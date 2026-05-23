@@ -1,11 +1,14 @@
 {
   "name": "clinic-register",
-  "version": "2.0.0",
+  "version": "1.0.0",
+  "description": "Clinic Patient Register with Excel Export",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "express": "^4.18.2",
     "exceljs": "^4.4.0",
-    "pg": "^8.11.0"
+    "pg": "^8.13.1"
   }
 }

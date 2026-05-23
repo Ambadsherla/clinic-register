@@ -7,42 +7,53 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#F7F5F0;--bg2:#EFEDE7;--surface:#FFFFFF;--surface2:#FAFAF8;
-  --border:#DDD9D0;--border2:#C8C4BB;
-  --sage:#3D7A5E;--sage2:#2E6049;--sage-bg:#EAF4EE;--sage-border:#B8DEC9;
-  --blue:#2B5797;--blue-bg:#EBF0F9;
-  --amber:#B45309;--amber-bg:#FEF3E2;
-  --red:#C0392B;--red-bg:#FDECEA;
-  --text:#1C1C1A;--text2:#4A4844;--text3:#7A7772;--text4:#A8A4A0;
-  --shadow:0 1px 4px rgba(28,28,26,.07),0 4px 16px rgba(28,28,26,.05);
-  --shadow-sm:0 1px 3px rgba(28,28,26,.08);
-  --r:8px;--rl:14px;
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:          #F7F5F0;
+  --bg2:         #EFEDE7;
+  --surface:     #FFFFFF;
+  --surface2:    #FAFAF8;
+  --border:      #DDD9D0;
+  --border2:     #C8C4BB;
+  --sage:        #3D7A5E;
+  --sage2:       #2E6049;
+  --sage-bg:     #EAF4EE;
+  --sage-border: #B8DEC9;
+  --blue:        #2B5797;
+  --blue-bg:     #EBF0F9;
+  --amber:       #B45309;
+  --amber-bg:    #FEF3E2;
+  --red:         #C0392B;
+  --red-bg:      #FDECEA;
+  --text:        #1C1C1A;
+  --text2:       #4A4844;
+  --text3:       #7A7772;
+  --text4:       #A8A4A0;
+  --shadow:      0 1px 4px rgba(28,28,26,.07),0 4px 16px rgba(28,28,26,.05);
+  --shadow-sm:   0 1px 3px rgba(28,28,26,.08);
+  --r:8px; --rl:14px;
   --sans:'Plus Jakarta Sans',system-ui,sans-serif;
   --serif:'Lora',Georgia,serif;
 }
 html{font-size:14px}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh}
 
-/* ── STARTUP POPUP (Feature 1+2+3) ─────────────────────────────── */
-.popup-overlay{position:fixed;inset:0;z-index:999;background:rgba(28,28,26,.55);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
-.popup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:0 8px 40px rgba(28,28,26,.18);padding:40px 44px;max-width:440px;width:100%;text-align:center}
-.popup-icon{font-size:2.2rem;margin-bottom:16px}
-.popup-title{font-family:var(--serif);font-size:1.6rem;color:var(--text);margin-bottom:8px}
-.popup-sub{font-size:.85rem;color:var(--text3);line-height:1.6;margin-bottom:28px}
-.popup-options{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
-.popup-opt{padding:12px 18px;border-radius:var(--r);border:1.5px solid var(--border2);background:var(--surface2);cursor:pointer;text-align:left;transition:all .16s;font-family:var(--sans);font-size:.88rem;color:var(--text2);font-weight:500}
-.popup-opt:hover{border-color:var(--sage);background:var(--sage-bg);color:var(--sage)}
-.popup-opt.selected{border-color:var(--sage);background:var(--sage-bg);color:var(--sage)}
-.popup-odip-row{display:flex;gap:10px;margin-bottom:20px;align-items:center}
-.popup-odip-row label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);white-space:nowrap}
-.popup-odip-input{flex:1;padding:10px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--sans);font-size:1.1rem;font-weight:600;color:var(--text);background:var(--surface2);outline:none;text-align:center;transition:border-color .18s}
-.popup-odip-input:focus{border-color:var(--sage);box-shadow:0 0 0 3px rgba(61,122,94,.12)}
-.btn-popup-go{width:100%;padding:13px;background:var(--sage);color:white;border:none;border-radius:var(--r);font-family:var(--sans);font-size:.92rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .18s}
-.btn-popup-go:hover{background:var(--sage2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(61,122,94,.3)}
+/* SETUP */
+#setupScreen{position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px}
+.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:0 8px 40px rgba(28,28,26,.12);padding:48px 52px;max-width:460px;width:100%;text-align:center}
+.setup-icon{width:64px;height:64px;border-radius:16px;background:var(--sage-bg);border:1px solid var(--sage-border);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:28px}
+.setup-title{font-family:var(--serif);font-size:1.75rem;color:var(--text);margin-bottom:8px}
+.setup-sub{font-size:.88rem;color:var(--text3);line-height:1.6;margin-bottom:32px}
+.setup-field{text-align:left;margin-bottom:20px}
+.setup-field label{display:block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.setup-input{width:100%;padding:14px 18px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--sans);font-size:1.5rem;font-weight:600;color:var(--text);background:var(--surface2);outline:none;text-align:center;letter-spacing:.1em;transition:border-color .18s,box-shadow .18s}
+.setup-input:focus{border-color:var(--sage);box-shadow:0 0 0 3px rgba(61,122,94,.12)}
+.setup-note{font-size:.78rem;color:var(--text3);background:var(--amber-bg);border:1px solid rgba(180,83,9,.15);border-radius:var(--r);padding:10px 14px;margin-bottom:28px;line-height:1.55;text-align:left}
+.setup-note strong{color:var(--amber)}
+.btn-setup{width:100%;padding:14px;background:var(--sage);color:white;border:none;border-radius:var(--r);font-family:var(--sans);font-size:.92rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .18s}
+.btn-setup:hover{background:var(--sage2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(61,122,94,.3)}
 
-/* ── HEADER ─────────────────────────────────────────────────────── */
+/* HEADER */
 .hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow-sm)}
 .hdr-brand{display:flex;align-items:center;gap:12px}
 .brand-mark{width:36px;height:36px;border-radius:9px;background:var(--sage);display:flex;align-items:center;justify-content:center}
@@ -51,7 +62,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .brand-sub{font-size:.68rem;color:var(--text4);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
 .hdr-actions{display:flex;gap:8px}
 
-/* ── BUTTONS ─────────────────────────────────────────────────────── */
+/* BUTTONS */
 .btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--sans);font-weight:600;font-size:.78rem;letter-spacing:.03em;padding:7px 16px;border-radius:var(--r);border:1px solid;cursor:pointer;transition:all .16s;white-space:nowrap}
 .btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
 .btn-primary{background:var(--sage);color:white;border-color:var(--sage)}
@@ -63,39 +74,32 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .btn-dl:hover{background:#dce7f5;border-color:rgba(43,87,151,.4)}
 .btn-del{background:transparent;color:var(--text4);border-color:var(--border);padding:4px 9px;font-size:.7rem}
 .btn-del:hover{color:var(--red);border-color:rgba(192,57,43,.3);background:var(--red-bg)}
-.btn-sm{padding:4px 10px;font-size:.68rem;border-radius:6px}
+.btn-odip{background:var(--amber-bg);color:var(--amber);border-color:rgba(180,83,9,.2)}
+.btn-odip:hover{background:#fde8c8;border-color:rgba(180,83,9,.4)}
+.btn-newfile{background:var(--sage-bg);color:var(--sage);border-color:var(--sage-border)}
+.btn-newfile:hover{background:#d8ede0;border-color:var(--sage)}
 
-/* ── LAYOUT ─────────────────────────────────────────────────────── */
+/* LAYOUT */
 .main{max-width:1100px;margin:0 auto;padding:28px 28px 80px}
 .topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
 .page-heading{font-family:var(--serif);font-size:1.7rem;color:var(--text);font-style:italic}
-.odip-badge{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:var(--sage-bg);color:var(--sage);border:1px solid var(--sage-border);padding:3px 10px;border-radius:99px;margin-top:6px;display:inline-block;cursor:pointer}
-.odip-badge:hover{background:#d5ece0}
+.odip-badge{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:var(--sage-bg);color:var(--sage);border:1px solid var(--sage-border);padding:3px 10px;border-radius:99px;margin-top:6px;display:inline-block}
 .topbar-actions{display:flex;gap:8px;flex-wrap:wrap}
 
-/* ── STATS ──────────────────────────────────────────────────────── */
+/* STATS */
 .stats-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;min-width:110px;box-shadow:var(--shadow-sm)}
 .stat-val{font-size:1.45rem;font-weight:700;color:var(--text);line-height:1}
 .stat-val.green{color:var(--sage)}
 .stat-lbl{font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-top:5px}
 
-/* ── EXCEL FILES + HISTORY PANEL ────────────────────────────────── */
-.history-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
-.history-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);white-space:nowrap}
-.ef-tab{font-size:.75rem;font-weight:600;padding:4px 14px;border-radius:99px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);cursor:pointer;transition:all .15s}
-.ef-tab:hover{border-color:var(--sage-border);color:var(--sage);background:var(--sage-bg)}
-.ef-tab.active{background:var(--blue);color:white;border-color:var(--blue)}
-
-/* ── SHEET TABS ─────────────────────────────────────────────────── */
-.tabs-section{margin-bottom:18px}
-.tabs-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px}
-.tabs-wrap{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+/* TABS */
+.tabs-wrap{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
 .tab{font-size:.78rem;font-weight:600;letter-spacing:.04em;padding:6px 16px;border-radius:99px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);cursor:pointer;transition:all .15s}
 .tab:hover{border-color:var(--sage-border);color:var(--sage);background:var(--sage-bg)}
 .tab.active{background:var(--sage);color:white;border-color:var(--sage);box-shadow:0 2px 8px rgba(61,122,94,.2)}
 
-/* ── ENTRY ──────────────────────────────────────────────────────── */
+/* ENTRY */
 .entry-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rl);padding:18px 22px;margin-bottom:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;box-shadow:var(--shadow-sm);transition:border-color .2s,box-shadow .2s}
 .entry-card:focus-within{border-color:var(--sage);box-shadow:0 0 0 3px rgba(61,122,94,.1),var(--shadow-sm)}
 .entry-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--sage);white-space:nowrap;flex-shrink:0}
@@ -104,7 +108,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .entry-input:focus{border-color:var(--sage);background:var(--surface)}
 .entry-hint{font-size:.72rem;color:var(--text4);white-space:nowrap}
 
-/* ── TABLE ──────────────────────────────────────────────────────── */
+/* TABLE */
 .table-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;box-shadow:var(--shadow)}
 .table-hdr{padding:14px 22px 12px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
 .table-hdr-title{font-size:.78rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.1em}
@@ -112,7 +116,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .tbl{width:100%;border-collapse:collapse;font-size:.85rem}
 .tbl thead tr{background:var(--bg2)}
 .tbl th{padding:11px 18px;text-align:left;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);border-bottom:2px solid var(--border)}
-.tbl th.c{text-align:center}.tbl th.r{text-align:right}
+.tbl th.c{text-align:center} .tbl th.r{text-align:right}
 .tbl tbody tr{border-bottom:1px solid var(--bg2);transition:background .1s}
 .tbl tbody tr:hover{background:var(--sage-bg)}
 .tbl td{padding:10px 18px;vertical-align:middle}
@@ -125,12 +129,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .total-label{font-size:.82rem;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:.1em;text-align:right}
 .total-amount{font-size:1.05rem;font-weight:800;color:var(--sage);text-align:right}
 
-/* ── EMPTY ──────────────────────────────────────────────────────── */
+/* EMPTY */
 .empty{padding:52px 24px;text-align:center}
 .empty-icon{font-size:2.2rem;opacity:.25;margin-bottom:12px}
 .empty-text{font-size:.85rem;color:var(--text3)}
 
-/* ── TOAST ──────────────────────────────────────────────────────── */
+/* TOAST */
 .toasts{position:fixed;bottom:24px;right:24px;z-index:998;display:flex;flex-direction:column;gap:8px;pointer-events:none}
 .toast{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:11px 16px;font-size:.82rem;color:var(--text2);max-width:320px;box-shadow:0 4px 20px rgba(28,28,26,.14);pointer-events:auto;animation:tIn .22s ease}
 .toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -140,7 +144,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 @keyframes tIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes tOut{to{opacity:0;transform:translateY(6px)}}
 
-/* ── DIALOG ─────────────────────────────────────────────────────── */
+/* DIALOG */
 .overlay{position:fixed;inset:0;z-index:300;background:rgba(28,28,26,.45);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
 .dialog{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px 36px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(28,28,26,.18)}
 .dialog-icon{font-size:1.8rem;margin-bottom:12px}
@@ -148,26 +152,39 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .dialog p{font-size:.85rem;color:var(--text3);line-height:1.6;margin-bottom:24px}
 .dialog-actions{display:flex;gap:10px;justify-content:flex-end}
 
-/* ── LOADING ────────────────────────────────────────────────────── */
+/* ODIP DIALOG */
+.odip-dialog{max-width:420px}
+.odip-options{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+.odip-option{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid var(--border2);border-radius:var(--r);cursor:pointer;transition:all .15s;background:var(--surface2)}
+.odip-option:hover{border-color:var(--sage-border);background:var(--sage-bg)}
+.odip-option.selected{border-color:var(--sage);background:var(--sage-bg);box-shadow:0 0 0 3px rgba(61,122,94,.1)}
+.odip-option-radio{width:20px;height:20px;border:2px solid var(--border2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.odip-option.selected .odip-option-radio{border-color:var(--sage);background:var(--sage)}
+.odip-option-radio::after{content:'';width:8px;height:8px;background:white;border-radius:50%;opacity:0;transition:opacity .15s}
+.odip-option.selected .odip-option-radio::after{opacity:1}
+.odip-option-label{font-size:.88rem;font-weight:600;color:var(--text)}
+.odip-option-desc{font-size:.75rem;color:var(--text3);margin-top:2px}
+.odip-input-wrap{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:none}
+.odip-input-wrap.show{display:block}
+.odip-input-wrap input{width:100%;padding:12px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--sans);font-size:1.1rem;font-weight:600;color:var(--text);background:var(--surface2);outline:none;text-align:center;letter-spacing:.05em}
+.odip-input-wrap input:focus{border-color:var(--sage);box-shadow:0 0 0 3px rgba(61,122,94,.12)}
+
+/* LOADING */
 #loadingOverlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
 .spinner{width:36px;height:36px;border-radius:50%;border:3px solid rgba(61,122,94,.15);border-top-color:var(--sage);animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-txt{font-size:.82rem;color:var(--text3);letter-spacing:.06em}
 
-/* ── ODIP CHANGE INLINE ─────────────────────────────────────────── */
-.odip-change-row{display:none;align-items:center;gap:8px;margin-top:4px}
-.odip-change-row.visible{display:flex}
-.odip-change-input{width:110px;padding:5px 10px;border:1.5px solid var(--sage);border-radius:var(--r);font-family:var(--sans);font-size:.88rem;font-weight:600;color:var(--text);outline:none;text-align:center}
-
 @media(max-width:600px){
-  .main{padding:16px 14px 60px}.hdr{padding:0 14px}
+  .main{padding:16px 14px 60px} .hdr{padding:0 14px}
   .brand-sub{display:none}
   .tbl th:nth-child(3),.tbl td:nth-child(3){display:none}
+  .setup-card{padding:32px 24px}
 }
 @keyframes shake{
   0%,100%{transform:translateX(0)}
-  20%{transform:translateX(-6px)}40%{transform:translateX(6px)}
-  60%{transform:translateX(-4px)}80%{transform:translateX(3px)}
+  20%{transform:translateX(-6px)} 40%{transform:translateX(6px)}
+  60%{transform:translateX(-4px)} 80%{transform:translateX(3px)}
 }
 .shake{animation:shake .35s ease !important;border-color:var(--red) !important}
 </style>
@@ -180,29 +197,66 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   <div class="loading-txt">Loading your data…</div>
 </div>
 
-<!-- ── STARTUP POPUP (Features 1, 2, 3) ──────────────────────────── -->
-<div class="popup-overlay" id="startupPopup" style="display:none">
-  <div class="popup-card">
-    <div class="popup-icon">🏥</div>
-    <h2 class="popup-title">Start New Session</h2>
-    <p class="popup-sub">A new sheet will be created automatically for today. Choose your ODIP setting for this session.</p>
-    <div class="popup-options">
-      <button class="popup-opt selected" id="optContinue" onclick="selectOdipOpt('continue')">
-        ↩ Continue from last ODIP <span id="lastOdipHint" style="opacity:.6;font-size:.82rem"></span>
-      </button>
-      <button class="popup-opt" id="optCustom" onclick="selectOdipOpt('custom')">
-        ✎ Start with a custom ODIP number
-      </button>
+<!-- Setup — shown only on very first use (legacy) -->
+<div id="setupScreen" style="display:none">
+  <div class="setup-card">
+    <div class="setup-icon">🏥</div>
+    <h2 class="setup-title">Welcome to Clinic Register</h2>
+    <p class="setup-sub">Set your starting ODIP number once. Your data will be saved permanently in the database — it will be here every time you open this link.</p>
+    <div class="setup-field">
+      <label>Starting ODIP Number</label>
+      <input type="number" id="odipInput" class="setup-input" value="1" min="1" max="999999" placeholder="e.g. 6759">
     </div>
-    <div class="popup-odip-row" id="customOdipRow" style="display:none">
-      <label>ODIP No.</label>
-      <input type="number" id="customOdipInput" class="popup-odip-input" placeholder="e.g. 500" min="1">
+    <div class="setup-note">
+      <strong>One-time setup only.</strong> Data is stored in a PostgreSQL database. It never disappears — even if the server restarts.
     </div>
-    <button class="btn-popup-go" onclick="startSession()">Open Register →</button>
+    <button class="btn-setup" onclick="submitSetup()">Start Using Register →</button>
   </div>
 </div>
 
-<!-- ── APP ────────────────────────────────────────────────────────── -->
+<!-- ════════════════════════════════════════════════════════════════
+     FEATURE 3: Startup ODIP Popup
+     Shown every time website opens
+═══════════════════════════════════════════════════════════════════ -->
+<div id="startupDlg" class="overlay" style="display:none">
+  <div class="dialog odip-dialog">
+    <div class="dialog-icon">🚀</div>
+    <h3>Start New Session</h3>
+    <p>Choose how you want to begin today's session. All previous sheets remain saved in history.</p>
+
+    <div class="odip-options">
+      <div class="odip-option" id="optContinue" onclick="selectOdipOption('continue')">
+        <div class="odip-option-radio"></div>
+        <div>
+          <div class="odip-option-label">Continue from Last ODIP</div>
+          <div class="odip-option-desc">Resume with ODIP <strong id="lastOdipDisplay">—</strong></div>
+        </div>
+      </div>
+
+      <div class="odip-option" id="optCustom" onclick="selectOdipOption('custom')">
+        <div class="odip-option-radio"></div>
+        <div>
+          <div class="odip-option-label">Start with Custom ODIP</div>
+          <div class="odip-option-desc">Set a specific starting number</div>
+        </div>
+      </div>
+
+      <div class="odip-input-wrap" id="customOdipWrap">
+        <input type="number" id="customOdipInput" placeholder="Enter ODIP number (e.g. 500)" min="1" max="999999">
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" onclick="closeStartupDlg()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmStartup()">
+        <svg viewBox="0 0 16 16"><path d="M3 8.5l4 4 6-7"/></svg>
+        Start Session
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- App -->
 <div id="app" style="display:none">
   <header class="hdr">
     <div class="hdr-brand">
@@ -215,9 +269,19 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
       </div>
     </div>
     <div class="hdr-actions">
-      <button class="btn btn-ghost btn-sm" onclick="newExcelFile()" title="Start a completely new Excel file">
+      <!-- ═══════════════════════════════════════════════════════════
+           FEATURE 2: ODIP Control — Quick set button in header
+      ═══════════════════════════════════════════════════════════ -->
+      <button class="btn btn-odip" onclick="openOdipDialog()" title="Change ODIP">
         <svg viewBox="0 0 16 16"><path d="M8 2v12M2 8h12"/></svg>
-        New Excel File
+        ODIP: <span id="headerOdip">—</span>
+      </button>
+      <!-- ═══════════════════════════════════════════════════════════
+           FEATURE 4: New Excel File Button
+      ═══════════════════════════════════════════════════════════ -->
+      <button class="btn btn-newfile" onclick="createNewExcelFile()" title="Start New Excel File">
+        <svg viewBox="0 0 16 16"><path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M9 2l4 4M9 2v4h4"/></svg>
+        New Excel
       </button>
       <button class="btn btn-dl" onclick="downloadExcel()">
         <svg viewBox="0 0 16 16"><path d="M8 2v9M4 7l4 4 4-4M2 13h12"/></svg>
@@ -230,19 +294,16 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <div class="topbar">
       <div>
         <div class="page-heading">Patient Register</div>
-        <div class="odip-badge" id="nextBadge" onclick="toggleOdipChange()" title="Click to change ODIP">NEXT ODIP: —</div>
-        <!-- Feature 2: inline ODIP change -->
-        <div class="odip-change-row" id="odipChangeRow">
-          <input type="number" id="odipChangeInput" class="odip-change-input" placeholder="New ODIP" min="1">
-          <button class="btn btn-primary btn-sm" onclick="applyOdipChange()">Set</button>
-          <button class="btn btn-ghost btn-sm" onclick="toggleOdipChange()">Cancel</button>
-        </div>
+        <div class="odip-badge" id="nextBadge">Next ODIP: —</div>
       </div>
       <div class="topbar-actions">
         <button class="btn btn-ghost" onclick="undoLast()">
           <svg viewBox="0 0 16 16"><path d="M2 5.5h7a4.5 4.5 0 1 1 0 9H5M2 5.5L5 2.5M2 5.5L5 8.5"/></svg>
           Undo Last
         </button>
+        <button class="btn btn-ghost" onclick="openHistoryModal()">
+  📂 History
+</button>
         <button class="btn btn-ghost" onclick="openSheetDialog()">
           <svg viewBox="0 0 16 16"><path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M9 2l4 4M9 2v4h4M8 8.5v5M5.5 11h5"/></svg>
           New Sheet
@@ -250,7 +311,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
       </div>
     </div>
 
-    <!-- Stats -->
     <div class="stats-row">
       <div class="stat"><div class="stat-val" id="sPat">0</div><div class="stat-lbl">Patients (Sheet)</div></div>
       <div class="stat"><div class="stat-val green" id="sTotal">₹0</div><div class="stat-lbl">Sheet Total</div></div>
@@ -258,18 +318,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
       <div class="stat"><div class="stat-val" id="sAll">0</div><div class="stat-lbl">All Patients</div></div>
     </div>
 
-    <!-- Feature 4+5: Excel File History bar -->
-    <div class="history-bar" id="historyBar">
-      <span class="history-label">📁 Excel Files:</span>
-    </div>
+    <div class="tabs-wrap" id="tabs"></div>
 
-    <!-- Sheet tabs for active excel file -->
-    <div class="tabs-section">
-      <div class="tabs-label">Sheets in this file:</div>
-      <div class="tabs-wrap" id="tabs"></div>
-    </div>
-
-    <!-- Entry -->
     <div class="entry-card">
       <span class="entry-label">Patient Name</span>
       <input type="text" id="nameInput" class="entry-input"
@@ -282,10 +332,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
       </button>
     </div>
 
-    <!-- Table -->
     <div class="table-card">
       <div class="table-hdr">
-        <span class="table-hdr-title" id="tableTitle">—</span>
+        <span class="table-hdr-title" id="tableTitle">Sheet 1</span>
         <span class="table-hdr-count" id="tableCount">0 entries</span>
       </div>
       <div style="overflow-x:auto">
@@ -320,41 +369,52 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   <div class="dialog">
     <div class="dialog-icon">📋</div>
     <h3>Create New Sheet?</h3>
-    <p>A new sheet will be added to the current Excel file. ODIP continues from where it left off.</p>
+    <p>The current sheet will be saved. A new empty sheet will be created and ODIP continues from where it left off.</p>
     <div class="dialog-actions">
-      <button class="btn btn-ghost" onclick="closeDlg('sheetDlg')">Cancel</button>
-      <button class="btn btn-primary" onclick="createSheet()">Create Sheet</button>
+      <button class="btn btn-ghost" onclick="closeDlg()">Cancel</button>
+      <button class="btn btn-primary" onclick="createSheet()">
+        <svg viewBox="0 0 16 16"><path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M9 2l4 4M9 2v4h4"/></svg>
+        Create Sheet
+      </button>
     </div>
   </div>
 </div>
 
-<!-- New Excel File Dialog -->
-<div class="overlay" id="excelDlg" style="display:none">
-  <div class="dialog">
-    <div class="dialog-icon">📊</div>
-    <h3>Create New Excel File?</h3>
-    <p>A new empty Excel file and sheet will be created. All previous Excel files remain saved and accessible. ODIP continues from the current number.</p>
+<!-- ════════════════════════════════════════════════════════════════
+     FEATURE 2: ODIP Change Dialog (inline, anytime)
+═══════════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="odipDlg" style="display:none">
+  <div class="dialog odip-dialog">
+    <div class="dialog-icon">🔢</div>
+    <h3>Change ODIP Number</h3>
+    <p>Set a new starting ODIP. Future entries will auto-increment from this number.</p>
+    <div class="setup-field" style="margin-bottom:20px">
+      <label>New ODIP Number</label>
+      <input type="number" id="newOdipInput" class="setup-input" min="1" max="999999" placeholder="e.g. 500">
+    </div>
     <div class="dialog-actions">
-      <button class="btn btn-ghost" onclick="closeDlg('excelDlg')">Cancel</button>
-      <button class="btn btn-primary" onclick="confirmNewExcelFile()">Create New File</button>
+      <button class="btn btn-ghost" onclick="closeOdipDlg()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewOdip()">
+        <svg viewBox="0 0 16 16"><path d="M3 8.5l4 4 6-7"/></svg>
+        Update ODIP
+      </button>
     </div>
   </div>
 </div>
 
 <script>
-/* ══════════════════════════════════════════════════════════════════
-   CLINIC REGISTER — All 5 features
-   Feature 1: Auto new session on open
-   Feature 2: Change ODIP anytime
-   Feature 3: Startup ODIP popup
-   Feature 4: New Excel file
-   Feature 5: History system with all excel files
-══════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   CLINIC REGISTER v2.0 — All Features Integrated
+   Feature 1: Auto New Session
+   Feature 2: ODIP Control System
+   Feature 3: Startup ODIP Popup
+   Feature 4: New Excel File Control
+   Feature 5: History System (enhanced)
+═══════════════════════════════════════════════════════════════════ */
 
-let state          = null;
-let activeExcelIdx = 0;   // which excel file is selected
-let activeSheetIdx = 0;   // which sheet inside that excel file
-let odipOpt        = 'continue'; // startup popup selection
+let state       = null;
+let activeSheet = 0;
+let startupChoice = 'continue'; // 'continue' or 'custom'
 
 // ── Boot ─────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
@@ -365,117 +425,240 @@ window.addEventListener('DOMContentLoaded', async () => {
     hide('loadingOverlay');
 
     if (!state.configured) {
-      // First ever use — go straight to first-time setup inside popup
-      document.getElementById('lastOdipHint').textContent = '';
-      show('startupPopup');
+      // First time ever — show legacy setup
+      show('setupScreen');
     } else {
-      // Show startup popup every time
-      document.getElementById('lastOdipHint').textContent = '(#' + state.nextOdip + ')';
-      show('startupPopup');
+      // ═══════════════════════════════════════════════════════════
+      // FEATURE 1 + 3: Show startup dialog, auto-create session
+      // ═══════════════════════════════════════════════════════════
+      showStartupDialog();
     }
   } catch(e) {
     hide('loadingOverlay');
-    alert('Cannot connect to server. Check that the server is running and DATABASE_URL is set.');
+    alert('Cannot connect to server.\n\nCheck that the server is running and DATABASE_URL is set.');
   }
 
   document.getElementById('nameInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') savePatient();
   });
-  document.getElementById('customOdipInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') startSession();
+  document.getElementById('odipInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitSetup();
   });
-  document.getElementById('odipChangeInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') applyOdipChange();
+  document.getElementById('customOdipInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmStartup();
+  });
+  document.getElementById('newOdipInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveNewOdip();
   });
 });
 
-// ── Startup Popup ─────────────────────────────────────────────────
-function selectOdipOpt(opt) {
-  odipOpt = opt;
-  document.getElementById('optContinue').classList.toggle('selected', opt === 'continue');
-  document.getElementById('optCustom').classList.toggle('selected', opt === 'custom');
-  document.getElementById('customOdipRow').style.display = opt === 'custom' ? 'flex' : 'none';
-  if (opt === 'custom') document.getElementById('customOdipInput').focus();
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 3: Startup ODIP Popup
+// ═══════════════════════════════════════════════════════════════════
+function showStartupDialog() {
+  document.getElementById('lastOdipDisplay').textContent = state.nextOdip;
+  startupChoice = 'continue';
+  updateOdipOptionUI();
+  show('startupDlg');
 }
 
-async function startSession() {
-  let customOdip = null;
+function selectOdipOption(choice) {
+  startupChoice = choice;
+  updateOdipOptionUI();
+}
 
-  if (odipOpt === 'custom') {
-    customOdip = parseInt(document.getElementById('customOdipInput').value, 10);
-    if (!customOdip || customOdip < 1) {
-      toast('Enter a valid ODIP number', 'err'); return;
+function updateOdipOptionUI() {
+  document.getElementById('optContinue').classList.toggle('selected', startupChoice === 'continue');
+  document.getElementById('optCustom').classList.toggle('selected', startupChoice === 'custom');
+  document.getElementById('customOdipWrap').classList.toggle('show', startupChoice === 'custom');
+  if (startupChoice === 'custom') {
+    setTimeout(() => document.getElementById('customOdipInput').focus(), 100);
+  }
+}
+
+function closeStartupDlg() {
+  hide('startupDlg');
+  // Even if cancelled, still create new session with current ODIP
+  createNewSession();
+}
+
+async function confirmStartup() {
+  if (startupChoice === 'custom') {
+    const val = parseInt(document.getElementById('customOdipInput').value, 10);
+    if (!val || val < 1 || val > 999999) {
+      toast('Enter a valid ODIP number', 'err');
+      return;
+    }
+    // Set custom ODIP
+    try {
+      const r = await fetch('/api/odip/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ odip: val })
+      });
+      if (!r.ok) throw new Error('Failed to set ODIP');
+      const data = await r.json();
+      state.nextOdip = data.nextOdip;
+      toast('ODIP set to ' + val, 'ok');
+    } catch(e) {
+      toast(e.message, 'err');
+      return;
     }
   }
+  hide('startupDlg');
 
+const alreadyStarted = sessionStorage.getItem('sessionStarted');
+
+if (!alreadyStarted) {
+  await createNewSession();
+  sessionStorage.setItem('sessionStarted', 'yes');
+} else {
+  show('app');
+  activeSheet = state.sheets.length - 1;
+  render();
+  focusInput();
+}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 1: Auto New Session on Website Open
+// ═══════════════════════════════════════════════════════════════════
+async function createNewSession() {
   try {
-    // If first time, configure
-    if (!state.configured) {
-      const odipToSet = customOdip || 1;
-      await fetch('/api/setup', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ startOdip: odipToSet })
-      });
-    }
-
-    // Get latest excel file (active one)
-    const latestEf = state.excelFiles[state.excelFiles.length - 1];
-
-    // Create new sheet for this session inside the latest excel file
-    const res  = await fetch('/api/session/new', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        excelFileId: latestEf.id,
-        odip:        customOdip
-      })
-    });
+    const res = await fetch('/api/session', { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    // Reload state
-    const stRes = await fetch('/api/state');
-    state = await stRes.json();
+    // Reload state to get fresh data with new sheet
+    const full = await fetch('/api/state');
+    state = await full.json();
 
-    // Set active to latest excel file, latest sheet
-    activeExcelIdx = state.excelFiles.length - 1;
-    activeSheetIdx = state.excelFiles[activeExcelIdx].sheets.length - 1;
+    // Auto-activate the newest sheet (last one)
+    activeSheet = state.sheets.length - 1;
 
-    hide('startupPopup');
     show('app');
     render();
     focusInput();
-    toast('New session started', 'ok');
-  } catch(e) { toast(e.message, 'err'); }
-}
-
-// ── Feature 2: Change ODIP anytime ───────────────────────────────
-function toggleOdipChange() {
-  const row = document.getElementById('odipChangeRow');
-  const visible = row.classList.toggle('visible');
-  if (visible) {
-    document.getElementById('odipChangeInput').value = state.nextOdip;
-    document.getElementById('odipChangeInput').focus();
-    document.getElementById('odipChangeInput').select();
+    toast('New session started — ' + data.sheetName, 'ok');
+  } catch(e) {
+    toast('Failed to create session: ' + e.message, 'err');
+    // Fallback: show app anyway
+    show('app');
+    activeSheet = state.sheets.length - 1;
+    render();
+    focusInput();
   }
 }
 
-async function applyOdipChange() {
-  const val = parseInt(document.getElementById('odipChangeInput').value, 10);
-  if (!val || val < 1) { toast('Enter a valid ODIP number', 'err'); return; }
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 2: ODIP Control System (inline dialog)
+// ═══════════════════════════════════════════════════════════════════
+function openOdipDialog() {
+  document.getElementById('newOdipInput').value = state.nextOdip;
+  show('odipDlg');
+  setTimeout(() => document.getElementById('newOdipInput').focus(), 100);
+}
+
+function closeOdipDlg() {
+  hide('odipDlg');
+}
+
+async function saveNewOdip() {
+  const val = parseInt(document.getElementById('newOdipInput').value, 10);
+  if (!val || val < 1 || val > 999999) {
+    toast('Enter a valid ODIP number', 'err');
+    return;
+  }
   try {
-    const res = await fetch('/api/odip/set', {
+    const r = await fetch('/api/odip/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ odip: val })
+    });
+    if (!r.ok) throw new Error('Failed to update ODIP');
+    const data = await r.json();
+    state.nextOdip = data.nextOdip;
+    closeOdipDlg();
+    render();
+    toast('ODIP updated to ' + val + ' — auto-increment active', 'ok');
+  } catch(e) {
+    toast(e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FEATURE 4: New Excel File Control
+// ═══════════════════════════════════════════════════════════════════
+async function createNewExcelFile() {
+
+  const fileName = prompt(
+    'Enter Excel File Name:',
+    'Clinic Register ' + new Date().toLocaleDateString()
+  );
+
+  if (!fileName || !fileName.trim()) {
+    toast('File name required', 'err');
+    return;
+  }
+
+  try {
+
+    const res = await fetch('/api/excel/new', {
+
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      body: JSON.stringify({
+        name: fileName.trim()
+      })
+
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error);
+    }
+
+    const full = await fetch('/api/state');
+
+    state = await full.json();
+
+    activeSheet = state.sheets.length - 1;
+
+    render();
+
+    focusInput();
+
+    toast('New Excel File Created', 'ok');
+
+  } catch(e) {
+
+    toast('Failed to create Excel file', 'err');
+
+  }
+
+}
+
+// ── Setup (legacy) ────────────────────────────────────────────────
+async function submitSetup() {
+  const val = parseInt(document.getElementById('odipInput').value, 10);
+  if (!val || val < 1 || val > 999999) { toast('Enter a valid ODIP number', 'err'); return; }
+  try {
+    const r = await fetch('/api/setup', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ odip: val })
+      body:    JSON.stringify({ startOdip: val })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    state.nextOdip = data.nextOdip;
-    document.getElementById('odipChangeRow').classList.remove('visible');
-    render();
-    toast('ODIP set to ' + val, 'ok');
+    if (!r.ok) throw new Error('Setup failed');
+    const res = await fetch('/api/state');
+    state = await res.json();
+    hide('setupScreen');
+    // After first setup, show startup dialog for session creation
+    showStartupDialog();
   } catch(e) { toast(e.message, 'err'); }
 }
 
@@ -490,16 +673,20 @@ async function savePatient() {
   }
   document.getElementById('saveBtn').disabled = true;
   try {
-    const curSheet = state.excelFiles[activeExcelIdx].sheets[activeSheetIdx];
     const res  = await fetch('/api/patient', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name, sheetId: curSheet.id })
+      body: JSON.stringify({
+        name,
+        sheetId: state.sheets[activeSheet].id
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    curSheet.patients.push(data.patient);
+
+    state.sheets[activeSheet].patients.push(data.patient);
     state.nextOdip = data.nextOdip;
+
     render();
     input.value = '';
     focusInput();
@@ -508,22 +695,43 @@ async function savePatient() {
   finally { document.getElementById('saveBtn').disabled = false; }
 }
 
-// ── Undo ──────────────────────────────────────────────────────────
+// ── Undo last ─────────────────────────────────────────────────────
+// ── Undo last ─────────────────────────────────────────────────────
 async function undoLast() {
+
   try {
-    const res  = await fetch('/api/patient/last', { method: 'DELETE' });
+
+    const res = await fetch('/api/patient/last', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sheetId: state.sheets[activeSheet].id
+      })
+    });
+
     const data = await res.json();
+
     if (!res.ok) throw new Error(data.error);
-    // Remove last patient from current sheet in local state
-    const curSheet = state.excelFiles[activeExcelIdx].sheets[activeSheetIdx];
-    if (curSheet.patients.length) curSheet.patients.pop();
+
+    state.sheets[activeSheet].patients.pop();
+
     state.nextOdip = data.nextOdip;
+
     render();
+
     toast('Removed "' + data.removed.name + '"', 'info');
-  } catch(e) { toast(e.message, 'info'); }
+
+  } catch(e) {
+
+    toast(e.message, 'info');
+
+  }
+
 }
 
-// ── Delete patient ────────────────────────────────────────────────
+// ── Delete patient by DB id ───────────────────────────────────────
 async function deletePatient(patientId, patientName) {
   if (!confirm('Remove "' + patientName + '"?')) return;
   try {
@@ -536,32 +744,48 @@ async function deletePatient(patientId, patientName) {
   } catch(e) { toast(e.message, 'err'); }
 }
 
-// ── Sheet management ──────────────────────────────────────────────
+// ── New sheet ─────────────────────────────────────────────────────
 function openSheetDialog() { show('sheetDlg'); }
+function closeDlg()         { hide('sheetDlg'); }
 
 async function createSheet() {
-  closeDlg('sheetDlg');
-  const ef = state.excelFiles[activeExcelIdx];
+  closeDlg();
   try {
-    const res  = await fetch('/api/sheet', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ excelFileId: ef.id })
-    });
+    const res  = await fetch('/api/sheet', { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    ef.sheets.push({ id: data.sheetId, name: data.sheetName, patients: [] });
-    activeSheetIdx = ef.sheets.length - 1;
+    state.sheets.push({
+      id: data.sheetId,
+      name: data.sheetName,
+      patients: []
+    });
+    activeSheet = state.sheets.length - 1;
     render();
     focusInput();
     toast(data.sheetName + ' created', 'ok');
-  } catch(e) { toast('Failed', 'err'); }
+  } catch(e) { toast('Failed to create sheet', 'err'); }
 }
 
-function openRenameSheet(sheetId, currentName) {
-  const n = prompt('New name for "' + currentName + '":', currentName);
-  if (!n || !n.trim() || n.trim() === currentName) return;
-  renameSheet(sheetId, n.trim());
+// ── Rename sheet ──────────────────────────────────────────────────
+function openRenameDialog(sheetId, currentName) {
+  const newName = prompt('New name for "' + currentName + '":', currentName);
+  if (!newName || !newName.trim() || newName.trim() === currentName) return;
+  renameSheet(sheetId, newName.trim());
+}
+async function deleteSheet(sheetId, sheetName){
+  if(!confirm('Delete "'+sheetName+'" ?')) return;
+  try{
+    const res=await fetch('/api/sheet/'+sheetId, {method:'DELETE'});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error);
+    const full=await fetch('/api/state');
+    state=await full.json();
+    activeSheet=0;
+    render();
+    toast(sheetName+' deleted', 'info');
+  }catch(e){
+    toast(e.message, 'err');
+  }
 }
 
 async function renameSheet(sheetId, newName) {
@@ -573,133 +797,69 @@ async function renameSheet(sheetId, newName) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    const sh = state.excelFiles[activeExcelIdx].sheets.find(s => s.id === sheetId);
+    const sh = state.sheets.find(s => s.id === sheetId);
     if (sh) sh.name = data.name;
     render();
     toast('Renamed to "' + data.name + '"', 'ok');
-  } catch(e) { toast(e.message, 'err'); }
-}
-
-async function deleteSheet(sheetId, sheetName) {
-  if (!confirm('Delete sheet "' + sheetName + '"? All patients in it will be removed.')) return;
-  try {
-    const res = await fetch('/api/sheet/' + sheetId, { method: 'DELETE' });
-    const d   = await res.json();
-    if (!res.ok) throw new Error(d.error);
-    const full = await fetch('/api/state');
-    state = await full.json();
-    activeSheetIdx = Math.max(0, activeSheetIdx - 1);
-    render();
-    toast(sheetName + ' deleted', 'info');
-  } catch(e) { toast(e.message, 'err'); }
-}
-
-// ── Feature 4: New Excel file ─────────────────────────────────────
-function newExcelFile() { show('excelDlg'); }
-
-async function confirmNewExcelFile() {
-  closeDlg('excelDlg');
-  try {
-    const res  = await fetch('/api/excel/new', { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    state.excelFiles.push({ id: data.excelFileId, name: data.excelFileName, sheets: [{ id: data.sheetId, name: data.sheetName, patients: [] }] });
-    activeExcelIdx = state.excelFiles.length - 1;
-    activeSheetIdx = 0;
-    render();
-    focusInput();
-    toast(data.excelFileName + ' created', 'ok');
-  } catch(e) { toast(e.message, 'err'); }
+  } catch(e) { toast(e.message || 'Rename failed', 'err'); }
 }
 
 // ── Download Excel ────────────────────────────────────────────────
 function downloadExcel() {
-  const ef = state.excelFiles[activeExcelIdx];
-  window.location.href = '/api/download/' + ef.id;
-  toast('Downloading ' + ef.name + '.xlsx…', 'ok');
+  window.location.href = '/api/download';
+  toast('Downloading patients.xlsx…', 'ok');
 }
 
 // ── Render ────────────────────────────────────────────────────────
 function render() {
   if (!state) return;
 
-  // Feature 5: History bar — all excel files
-  const histBar = document.getElementById('historyBar');
-  histBar.innerHTML = '<span class="history-label">📁 Excel Files:</span>';
-  state.excelFiles.forEach((ef, i) => {
-    const b = document.createElement('button');
-    b.className   = 'ef-tab' + (i === activeExcelIdx ? ' active' : '');
-    b.textContent = ef.name;
-    b.onclick = () => {
-      activeExcelIdx = i;
-      activeSheetIdx = ef.sheets.length - 1;
-      render();
-    };
-    histBar.appendChild(b);
+  // Update header ODIP display
+  document.getElementById('headerOdip').textContent = state.nextOdip;
 
-    // Rename excel file
-    const rBtn = document.createElement('button');
-    rBtn.textContent = 'Rename';
-    rBtn.className   = 'btn btn-ghost btn-sm';
-    rBtn.style.marginLeft = '2px';
-    rBtn.style.marginRight = '6px';
-    rBtn.onclick = async (e) => {
-      e.stopPropagation();
-      const n = prompt('New name for "' + ef.name + '":', ef.name);
-      if (!n || !n.trim() || n.trim() === ef.name) return;
-      const res  = await fetch('/api/excel/' + ef.id + '/rename', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: n.trim() })
-      });
-      const d = await res.json();
-      if (res.ok) { ef.name = d.name; render(); toast('Renamed', 'ok'); }
-    };
-    histBar.appendChild(rBtn);
-  });
-
-  // Sheet tabs
+  // Tabs
   const tabsEl = document.getElementById('tabs');
   tabsEl.innerHTML = '';
-  const ef = state.excelFiles[activeExcelIdx];
-  if (!ef) return;
-
-  ef.sheets.forEach((sh, i) => {
+  state.sheets.forEach((sh, i) => {
     const b = document.createElement('button');
-    b.className   = 'tab' + (i === activeSheetIdx ? ' active' : '');
+    b.className   = 'tab' + (i === activeSheet ? ' active' : '');
     b.textContent = sh.name + (sh.patients.length ? ' (' + sh.patients.length + ')' : '');
-    b.onclick = () => { activeSheetIdx = i; render(); };
+    b.onclick = () => { activeSheet = i; render(); };
     tabsEl.appendChild(b);
 
     const rBtn = document.createElement('button');
     rBtn.textContent = 'Rename';
+    rBtn.title       = 'Rename "' + sh.name + '"';
     rBtn.style.cssText =
-      'font-family:var(--sans);font-size:.68rem;font-weight:600;padding:4px 10px;' +
-      'border-radius:6px;border:1px solid var(--border2);background:var(--surface);' +
-      'color:var(--text3);cursor:pointer;margin-left:2px;margin-right:4px;transition:all .15s;';
-    rBtn.onmouseover = () => { rBtn.style.background='var(--sage-bg)'; rBtn.style.color='var(--sage)'; };
-    rBtn.onmouseout  = () => { rBtn.style.background='var(--surface)'; rBtn.style.color='var(--text3)'; };
-    rBtn.onclick = (e) => { e.stopPropagation(); openRenameSheet(sh.id, sh.name); };
+      'font-family:var(--sans);font-size:.68rem;font-weight:600;' +
+      'padding:4px 10px;border-radius:6px;border:1px solid var(--border2);' +
+      'background:var(--surface);color:var(--text3);cursor:pointer;' +
+      'margin-left:2px;margin-right:8px;transition:all .15s;';
+    rBtn.onmouseover = () => { rBtn.style.background='var(--sage-bg)'; rBtn.style.color='var(--sage)'; rBtn.style.borderColor='var(--sage-border)'; };
+    rBtn.onmouseout  = () => { rBtn.style.background='var(--surface)'; rBtn.style.color='var(--text3)'; rBtn.style.borderColor='var(--border2)'; };
+    rBtn.onclick = (e) => { e.stopPropagation(); openRenameDialog(sh.id, sh.name); };
     tabsEl.appendChild(rBtn);
 
-    const dBtn = document.createElement('button');
-    dBtn.textContent = 'Delete';
-    dBtn.style.cssText =
-      'font-family:var(--sans);font-size:.68rem;font-weight:600;padding:4px 10px;' +
-      'border-radius:6px;border:1px solid #ffbdbd;background:#fff0f0;color:var(--red);' +
-      'cursor:pointer;margin-right:8px;transition:all .15s;';
-    dBtn.onclick = (e) => { e.stopPropagation(); deleteSheet(sh.id, sh.name); };
+    const dBtn=document.createElement('button');
+    dBtn.textContent='Delete';
+    dBtn.style.cssText=
+    'font-family:var(--sans);font-size:.68rem;padding:4px 10px;border:1px solid #ffbdbd;background:#fff0f0;color:red;border-radius:6px;cursor:pointer;margin-right:8px';
+    dBtn.onclick=(e)=>{
+      e.stopPropagation();
+      deleteSheet(sh.id, sh.name);
+    };
     tabsEl.appendChild(dBtn);
   });
 
   // Stats
-  const cur   = ef.sheets[activeSheetIdx] || { patients: [], name: '—' };
+  const cur   = state.sheets[activeSheet];
   const total = cur.patients.reduce((s, p) => s + p.amount, 0);
-  const allP  = ef.sheets.reduce((s, sh) => s + sh.patients.length, 0);
+  const allP  = state.sheets.reduce((s, sh) => s + sh.patients.length, 0);
   document.getElementById('sPat').textContent      = cur.patients.length;
   document.getElementById('sTotal').textContent    = '₹' + total.toLocaleString('en-IN');
-  document.getElementById('sSheets').textContent   = ef.sheets.length;
+  document.getElementById('sSheets').textContent   = state.sheets.length;
   document.getElementById('sAll').textContent      = allP;
-  document.getElementById('nextBadge').textContent = 'NEXT ODIP: ' + state.nextOdip;
+  document.getElementById('nextBadge').textContent = 'Next ODIP: ' + state.nextOdip;
 
   // Table
   const tbody = document.getElementById('tbody');
@@ -713,7 +873,7 @@ function render() {
     tbody.innerHTML =
       '<tr><td colspan="5"><div class="empty">' +
       '<div class="empty-icon">📋</div>' +
-      '<div class="empty-text">No patients yet. Type a name above and press Enter.</div>' +
+      '<div class="empty-text">No patients yet on ' + esc(cur.name) + '. Type a name above and press Enter.</div>' +
       '</div></td></tr>';
     return;
   }
@@ -736,7 +896,6 @@ function render() {
 // ── Helpers ───────────────────────────────────────────────────────
 function show(id)     { document.getElementById(id).style.display = 'flex'; }
 function hide(id)     { document.getElementById(id).style.display = 'none'; }
-function closeDlg(id) { document.getElementById(id).style.display = 'none'; }
 function focusInput() { setTimeout(() => document.getElementById('nameInput').focus(), 80); }
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -750,6 +909,122 @@ function toast(msg, type='info') {
     el.style.animation = 'tOut .22s ease forwards';
     setTimeout(() => el.remove(), 250);
   }, 3000);
+}
+// HISTORY MODAL
+async function openHistoryModal() {
+
+  try {
+
+    const res = await fetch('/api/files');
+
+    const files = await res.json();
+
+    let html = 'Select Excel File:\n\n';
+
+    files.forEach((f, i) => {
+
+  html +=
+    (i + 1) +
+    '. ' +
+    f.name +
+    '  [ID:' + f.id + ']\n';
+
+});
+
+    const choice = prompt(
+
+  html +
+
+  '\n\nEnter:\n' +
+
+  '1 = open file 1\n' +
+
+  'delete 1 = delete file 1\n\n' +
+
+  'Your choice:'
+
+);
+
+    if (!choice) return;
+    // DELETE FILE
+if (choice.startsWith('delete')) {
+
+  const parts = choice.split(' ');
+
+  const idx = parseInt(parts[1]) - 1;
+
+  if (!files[idx]) {
+
+    toast('Invalid file number', 'err');
+
+    return;
+
+  }
+
+  const confirmDelete = confirm(
+    'Delete "' + files[idx].name + '" ?'
+  );
+
+  if (!confirmDelete) return;
+
+  const delRes = await fetch(
+    '/api/files/' + files[idx].id,
+    {
+      method: 'DELETE'
+    }
+  );
+
+  const delData = await delRes.json();
+
+  if (!delRes.ok) {
+
+    throw new Error(delData.error);
+
+  }
+
+  toast('Excel file deleted', 'ok');
+
+  location.reload();
+
+  return;
+
+}
+
+    const idx = parseInt(choice) - 1;
+
+    if (!files[idx]) {
+      toast('Invalid selection', 'err');
+      return;
+    }
+
+    const switchRes = await fetch('/api/files/switch', {
+
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      body: JSON.stringify({
+        fileId: files[idx].id
+      })
+
+    });
+
+    const data = await switchRes.json();
+
+    if (!switchRes.ok) {
+      throw new Error(data.error);
+    }
+
+    location.reload();
+
+  } catch(e) {
+
+    toast('Failed to open history', 'err');
+
+  }
+
 }
 </script>
 </body>
