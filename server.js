@@ -471,7 +471,9 @@ app.patch('/api/sheet/:id/rename', async (req, res) => {
 app.delete('/api/sheet/:id', async (req,res)=>{
   try{
     const id=parseInt(req.params.id);
-    const countRes = await pool.query('SELECT COUNT(*) FROM sheets WHERE file_id=$1');
+const countRes = await pool.query(
+  'SELECT COUNT(*) FROM sheets'
+);
     if(parseInt(countRes.rows[0].count)<=1){
       return res.status(400).json({ error:'Cannot delete last sheet' });
     }
@@ -484,8 +486,15 @@ await pool.query(
   'DELETE FROM sheets WHERE id = $1',
   [id]
 );
-    const cfg = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
-    await renumberOdips(cfg.rows[0].start_odip);
+    const cfg = await pool.query(
+  'SELECT start_odip FROM clinic_config LIMIT 1'
+);
+
+if (cfg.rows.length > 0) {
+
+  await renumberOdips(cfg.rows[0].start_odip);
+
+}
     res.json({ ok:true });
   }catch(e){
     console.log(e);
