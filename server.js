@@ -346,11 +346,11 @@ app.post('/api/excel/new', async (req, res) => {
     const now = new Date();
 
     const fileName =
-      'Excel File ' +
-      now.getDate() + '-' +
-      (now.getMonth()+1) + '-' +
-      now.getFullYear() + ' ' +
-      Date.now();
+  req.body.name ||
+  ('Excel File ' +
+  now.getDate() + '-' +
+  (now.getMonth()+1) + '-' +
+  now.getFullYear());
 
     // create new excel file
     const fileRes = await pool.query(
