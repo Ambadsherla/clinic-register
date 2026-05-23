@@ -122,7 +122,7 @@ async function loadState(fileId = ACTIVE_FILE_ID) {  const cfgRes = await pool.q
   const cfg    = cfgRes.rows[0];
 
 const sheetsRes = await pool.query(
-  'SELECT * FROM sheets WHERE file_id = $1 ORDER BY position ASC',
+  'SELECT id FROM sheets WHERE file_id = $1 ORDER BY position ASC',
   [fileId]
 );
   const sheets    = [];
@@ -471,15 +471,13 @@ app.patch('/api/sheet/:id/rename', async (req, res) => {
 app.delete('/api/sheet/:id', async (req,res)=>{
   try{
     const id=parseInt(req.params.id);
-<<<<<<< HEAD
 const countRes = await pool.query(
-  'SELECT COUNT(*) FROM sheets'
+  'SELECT COUNT(*) FROM sheets WHERE file_id = $1',
+  [ACTIVE_FILE_ID]
 );
-=======
-    const countRes = await pool.query('SELECT COUNT(*) FROM sheets WHERE file_id=$1');
->>>>>>> 6a3b4ed73bbc9c21091ad060a27225cc2dd9d6f3
     if(parseInt(countRes.rows[0].count)<=1){
-      return res.status(400).json({ error:'Cannot delete last sheet' });
+      return res.status(400).json({ 
+        error:'Cannot delete last sheet' });
     }
     await pool.query(
   'DELETE FROM patients WHERE sheet_id = $1',
@@ -490,20 +488,18 @@ await pool.query(
   'DELETE FROM sheets WHERE id = $1',
   [id]
 );
-<<<<<<< HEAD
     const cfg = await pool.query(
   'SELECT start_odip FROM clinic_config LIMIT 1'
 );
 
 if (cfg.rows.length > 0) {
 
-  await renumberOdips(cfg.rows[0].start_odip);
+  await renumberOdips(
+  cfg.rows[0].start_odip,
+  ACTIVE_FILE_ID
+);
 
 }
-=======
-    const cfg = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
-    await renumberOdips(cfg.rows[0].start_odip);
->>>>>>> 6a3b4ed73bbc9c21091ad060a27225cc2dd9d6f3
     res.json({ ok:true });
   }catch(e){
     console.log(e);
@@ -729,8 +725,4 @@ app.delete('/api/files/:id', async (req, res) => {
 
   }
 
-<<<<<<< HEAD
 });
-=======
-});
->>>>>>> 6a3b4ed73bbc9c21091ad060a27225cc2dd9d6f3
