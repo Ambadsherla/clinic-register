@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
-
+let ACTIVE_FILE_ID = 1;
 // ── PostgreSQL connection ──────────────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -78,6 +78,7 @@ if (fileRes.rows.length === 0) {
 } else {
   fileId = fileRes.rows[0].id;
 }
+ACTIVE_FILE_ID = fileId;
 
 const sh = await pool.query('SELECT id FROM sheets LIMIT 1');
 
@@ -117,11 +118,13 @@ function randTreatment() {
 }
 
 // ── Load full state from DB ────────────────────────────────────────
-async function loadState() {
-  const cfgRes = await pool.query('SELECT * FROM clinic_config LIMIT 1');
+async function loadState(fileId = ACTIVE_FILE_ID) {  const cfgRes = await pool.query('SELECT * FROM clinic_config LIMIT 1');
   const cfg    = cfgRes.rows[0];
 
-  const sheetsRes = await pool.query('SELECT * FROM sheets ORDER BY position ASC');
+const sheetsRes = await pool.query(
+  'SELECT * FROM sheets WHERE file_id = $1 ORDER BY position ASC',
+  [fileId]
+);
   const sheets    = [];
 
   for (const sh of sheetsRes.rows) {
@@ -151,7 +154,7 @@ async function loadState() {
 }
 
 // ── Renumber all ODIPs from scratch ───────────────────────────────
-async function renumberOdips(startOdip) {
+async function renumberOdips(startOdip, fileId = ACTIVE_FILE_ID) {
   const sheetsRes = await pool.query('SELECT id FROM sheets ORDER BY position ASC');
   let odip = startOdip;
   for (const sh of sheetsRes.rows) {
@@ -266,28 +269,35 @@ app.post('/api/setup', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════
 app.post('/api/session', async (req, res) => {
   try {
-    // Get current max position
-    const posRes = await pool.query('SELECT COALESCE(MAX(position), 0) as maxpos FROM sheets');
-    const position = parseInt(posRes.rows[0].maxpos) + 1;
 
-    // Generate date-based name
-    const now = new Date();
-    const dateStr = now.getDate() + '-' + (now.getMonth() + 1) + '-' + now.getFullYear();
-    const name = dateStr;
-
-    const shRes = await pool.query(
-      'INSERT INTO sheets (file_id, name, position) VALUES ($1, $2) RETURNING *',
-      [name, position]
+    const posRes = await pool.query(
+      'SELECT COALESCE(MAX(position),0) as maxpos FROM sheets WHERE file_id=$1',
+      [ACTIVE_FILE_ID]
     );
 
-    res.json({ 
-      ok: true, 
-      sheetId: shRes.rows[0].id, 
-      sheetName: shRes.rows[0].name 
+    const position = parseInt(posRes.rows[0].maxpos) + 1;
+
+    const now = new Date();
+
+    const name =
+      now.getDate() + '-' +
+      (now.getMonth()+1) + '-' +
+      now.getFullYear();
+
+    const shRes = await pool.query(
+      'INSERT INTO sheets (file_id, name, position) VALUES ($1,$2,$3) RETURNING *',
+      [ACTIVE_FILE_ID, name, position]
+    );
+
+    res.json({
+      ok:true,
+      sheetId:shRes.rows[0].id,
+      sheetName:shRes.rows[0].name
     });
+
   } catch(e) {
     console.error(e);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error:e.message });
   }
 });
 
@@ -330,32 +340,45 @@ app.get('/api/odip', async (req, res) => {
 //  POST /api/excel/new — creates new Excel file (new DB state)
 // ═══════════════════════════════════════════════════════════════════
 app.post('/api/excel/new', async (req, res) => {
+
   try {
-    // Keep all existing sheets but create a fresh "working" context
-    // We create a new sheet as the active working sheet
-    const posRes = await pool.query('SELECT COALESCE(MAX(position), 0) as maxpos FROM sheets');
-    const position = parseInt(posRes.rows[0].maxpos) + 1;
 
     const now = new Date();
-    const dateStr = now.getDate() + '-' + (now.getMonth() + 1) + '-' + now.getFullYear();
-    const name = dateStr + ' (New File)';
 
-    const shRes = await pool.query(
-      'INSERT INTO sheets (file_id, name, position) VALUES ($1, $2) RETURNING *',
-      [name, position]
+    const fileName =
+      'Excel File ' +
+      now.getDate() + '-' +
+      (now.getMonth()+1) + '-' +
+      now.getFullYear() + ' ' +
+      Date.now();
+
+    // create new excel file
+    const fileRes = await pool.query(
+      'INSERT INTO excel_files (name) VALUES ($1) RETURNING *',
+      [fileName]
     );
 
-    res.json({ 
-      ok: true, 
-      sheetId: shRes.rows[0].id, 
-      sheetName: shRes.rows[0].name 
+    ACTIVE_FILE_ID = fileRes.rows[0].id;
+
+    // create first sheet
+    const shRes = await pool.query(
+      'INSERT INTO sheets (file_id, name, position) VALUES ($1,$2,$3) RETURNING *',
+      [ACTIVE_FILE_ID, 'Sheet 1', 1]
+    );
+
+    res.json({
+      ok:true,
+      fileId:ACTIVE_FILE_ID,
+      sheetId:shRes.rows[0].id,
+      sheetName:shRes.rows[0].name
     });
+
   } catch(e) {
     console.error(e);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error:e.message });
   }
-});
 
+});
 // POST add patient to selected sheet
 app.post('/api/patient', async (req, res) => {
   const { name, sheetId } = req.body;
@@ -448,7 +471,7 @@ app.patch('/api/sheet/:id/rename', async (req, res) => {
 app.delete('/api/sheet/:id', async (req,res)=>{
   try{
     const id=parseInt(req.params.id);
-    const countRes = await pool.query('SELECT COUNT(*) FROM sheets');
+    const countRes = await pool.query('SELECT COUNT(*) FROM sheets WHERE file_id=$1');
     if(parseInt(countRes.rows[0].count)<=1){
       return res.status(400).json({ error:'Cannot delete last sheet' });
     }
@@ -477,25 +500,44 @@ app.delete('/api/patient/:id', async (req, res) => {
 
 // POST create new sheet (manual)
 app.post('/api/sheet', async (req, res) => {
+
   try {
-    const countRes = await pool.query('SELECT COUNT(*) FROM sheets');
-    const num      = parseInt(countRes.rows[0].count) + 1;
-    const position = num;
-    const shRes    = await pool.query(
-      'INSERT INTO sheets (file_id, name, position) VALUES ($1, $2) RETURNING *',
-      ['Sheet ' + num, position]
+
+    const countRes = await pool.query(
+      'SELECT COUNT(*) FROM sheets WHERE file_id=$1',
+      [ACTIVE_FILE_ID]
     );
-    res.json({ sheetName: shRes.rows[0].name, sheetId: shRes.rows[0].id });
+
+    const num = parseInt(countRes.rows[0].count) + 1;
+
+    const shRes = await pool.query(
+      'INSERT INTO sheets (file_id, name, position) VALUES ($1,$2,$3) RETURNING *',
+      [ACTIVE_FILE_ID, 'Sheet ' + num, num]
+    );
+
+    res.json({
+      sheetName: shRes.rows[0].name,
+      sheetId: shRes.rows[0].id
+    });
+
   } catch(e) {
-    res.status(500).json({ error: e.message });
+
+    console.error(e);
+
+    res.status(500).json({
+      error:e.message
+    });
+
   }
+
 });
 
 // GET download Excel
 app.get('/api/download', async (req, res) => {
   try {
-    const state  = await loadState();
-    const buffer = await buildExcel(state);
+const state = await loadState(ACTIVE_FILE_ID);
+
+const buffer = await buildExcel(state);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="patients.xlsx"');
     res.send(buffer);
