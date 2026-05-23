@@ -923,13 +923,72 @@ async function openHistoryModal() {
 
     files.forEach((f, i) => {
 
-      html += (i + 1) + '. ' + f.name + '\n';
+  html +=
+    (i + 1) +
+    '. ' +
+    f.name +
+    '  [ID:' + f.id + ']\n';
 
-    });
+});
 
-    const choice = prompt(html + '\nEnter file number to open:');
+    const choice = prompt(
+
+  html +
+
+  '\n\nEnter:\n' +
+
+  '1 = open file 1\n' +
+
+  'delete 1 = delete file 1\n\n' +
+
+  'Your choice:'
+
+);
 
     if (!choice) return;
+    // DELETE FILE
+if (choice.startsWith('delete')) {
+
+  const parts = choice.split(' ');
+
+  const idx = parseInt(parts[1]) - 1;
+
+  if (!files[idx]) {
+
+    toast('Invalid file number', 'err');
+
+    return;
+
+  }
+
+  const confirmDelete = confirm(
+    'Delete "' + files[idx].name + '" ?'
+  );
+
+  if (!confirmDelete) return;
+
+  const delRes = await fetch(
+    '/api/files/' + files[idx].id,
+    {
+      method: 'DELETE'
+    }
+  );
+
+  const delData = await delRes.json();
+
+  if (!delRes.ok) {
+
+    throw new Error(delData.error);
+
+  }
+
+  toast('Excel file deleted', 'ok');
+
+  location.reload();
+
+  return;
+
+}
 
     const idx = parseInt(choice) - 1;
 
