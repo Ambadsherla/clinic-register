@@ -590,23 +590,57 @@ async function saveNewOdip() {
 //  FEATURE 4: New Excel File Control
 // ═══════════════════════════════════════════════════════════════════
 async function createNewExcelFile() {
-  if (!confirm('Create a completely new Excel file?\n\nA new empty sheet will be created. All old data remains saved in history.')) return;
-  try {
-    const res = await fetch('/api/excel/new', { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
 
-    // Reload state
+  const fileName = prompt(
+    'Enter Excel File Name:',
+    'Clinic Register ' + new Date().toLocaleDateString()
+  );
+
+  if (!fileName || !fileName.trim()) {
+    toast('File name required', 'err');
+    return;
+  }
+
+  try {
+
+    const res = await fetch('/api/excel/new', {
+
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      body: JSON.stringify({
+        name: fileName.trim()
+      })
+
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error);
+    }
+
     const full = await fetch('/api/state');
+
     state = await full.json();
+
     activeSheet = state.sheets.length - 1;
 
     render();
+
     focusInput();
-    toast('New Excel file started — ' + data.sheetName, 'ok');
+
+    toast('New Excel File Created', 'ok');
+
   } catch(e) {
-    toast('Failed to create new Excel file', 'err');
+
+    toast('Failed to create Excel file', 'err');
+
   }
+
 }
 
 // ── Setup (legacy) ────────────────────────────────────────────────
