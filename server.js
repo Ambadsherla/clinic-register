@@ -475,7 +475,15 @@ app.delete('/api/sheet/:id', async (req,res)=>{
     if(parseInt(countRes.rows[0].count)<=1){
       return res.status(400).json({ error:'Cannot delete last sheet' });
     }
-    await pool.query('DELETE FROM sheets WHERE id=$1', [id]);
+    await pool.query(
+  'DELETE FROM patients WHERE sheet_id = $1',
+  [id]
+);
+
+await pool.query(
+  'DELETE FROM sheets WHERE id = $1',
+  [id]
+);
     const cfg = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
     await renumberOdips(cfg.rows[0].start_odip);
     res.json({ ok:true });
@@ -657,4 +665,50 @@ initDB().then(() => {
 }).catch(err => {
   console.error('DB init failed:', err);
   process.exit(1);
+});
+// DELETE EXCEL FILE
+app.delete('/api/files/:id', async (req, res) => {
+
+  try {
+
+    const id = parseInt(req.params.id);
+
+    // delete patients
+    await pool.query(
+      `
+      DELETE FROM patients
+      WHERE sheet_id IN (
+        SELECT id FROM sheets
+        WHERE file_id = $1
+      )
+      `,
+      [id]
+    );
+
+    // delete sheets
+    await pool.query(
+      'DELETE FROM sheets WHERE file_id = $1',
+      [id]
+    );
+
+    // delete excel file
+    await pool.query(
+      'DELETE FROM excel_files WHERE id = $1',
+      [id]
+    );
+
+    res.json({
+      ok: true
+    });
+
+  } catch (e) {
+
+    console.log(e);
+
+    res.status(500).json({
+      error: e.message
+    });
+
+  }
+
 });
