@@ -301,6 +301,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
           <svg viewBox="0 0 16 16"><path d="M2 5.5h7a4.5 4.5 0 1 1 0 9H5M2 5.5L5 2.5M2 5.5L5 8.5"/></svg>
           Undo Last
         </button>
+        <button class="btn btn-ghost" onclick="openHistoryModal()">
+  📂 History
+</button>
         <button class="btn btn-ghost" onclick="openSheetDialog()">
           <svg viewBox="0 0 16 16"><path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M9 2l4 4M9 2v4h4M8 8.5v5M5.5 11h5"/></svg>
           New Sheet
@@ -872,6 +875,63 @@ function toast(msg, type='info') {
     el.style.animation = 'tOut .22s ease forwards';
     setTimeout(() => el.remove(), 250);
   }, 3000);
+}
+// HISTORY MODAL
+async function openHistoryModal() {
+
+  try {
+
+    const res = await fetch('/api/files');
+
+    const files = await res.json();
+
+    let html = 'Select Excel File:\n\n';
+
+    files.forEach((f, i) => {
+
+      html += (i + 1) + '. ' + f.name + '\n';
+
+    });
+
+    const choice = prompt(html + '\nEnter file number to open:');
+
+    if (!choice) return;
+
+    const idx = parseInt(choice) - 1;
+
+    if (!files[idx]) {
+      toast('Invalid selection', 'err');
+      return;
+    }
+
+    const switchRes = await fetch('/api/files/switch', {
+
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      body: JSON.stringify({
+        fileId: files[idx].id
+      })
+
+    });
+
+    const data = await switchRes.json();
+
+    if (!switchRes.ok) {
+      throw new Error(data.error);
+    }
+
+    location.reload();
+
+  } catch(e) {
+
+    toast('Failed to open history', 'err');
+
+  }
+
 }
 </script>
 </body>
