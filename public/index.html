@@ -827,12 +827,11 @@ function downloadExcel() {
 
 // ── Render ────────────────────────────────────────────────────────
 function render() {
-
+ 
   if (!state) return;
 
-  document.getElementById('activeFileName').textContent =
+   document.getElementById('activeFileName').textContent =
   'Excel File: ' + state.activeFile.name;
-
   // Update header ODIP display
   document.getElementById('headerOdip').textContent = state.nextOdip;
 
@@ -947,44 +946,153 @@ async function openHistoryModal() {
       return;
     }
 
-    let text = 'Select Excel File:\n\n';
+    let html = `
+      <div id="historyPopup"
+      style="
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.45);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+      ">
 
-    files.forEach((f, i) => {
-      text += (i + 1) + '. ' + f.name + '\n';
+      <div style="
+      width:420px;
+      background:white;
+      border-radius:16px;
+      padding:22px;
+      box-shadow:0 10px 40px rgba(0,0,0,.2);
+      max-height:80vh;
+      overflow:auto;
+      ">
+
+      <h2 style="
+      margin-bottom:18px;
+      font-size:22px;
+      ">
+      📂 Excel History
+      </h2>
+    `;
+
+    files.forEach(file => {
+
+      html += `
+        <div style="
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding:10px;
+        border:1px solid #ddd;
+        border-radius:10px;
+        margin-bottom:10px;
+        ">
+
+          <div style="
+          font-weight:600;
+          flex:1;
+          ">
+            ${file.name}
+          </div>
+
+          <button
+          onclick="openExcelFile(${file.id})"
+          style="
+          background:#2e7d5b;
+          color:white;
+          border:none;
+          padding:6px 14px;
+          border-radius:8px;
+          cursor:pointer;
+          ">
+          Open
+          </button>
+
+          <button
+          onclick="deleteExcelFile(${file.id})"
+          style="
+          background:#ffebeb;
+          color:red;
+          border:1px solid #ffb8b8;
+          width:30px;
+          height:30px;
+          border-radius:50%;
+          cursor:pointer;
+          font-weight:bold;
+          ">
+          ✕
+          </button>
+
+        </div>
+      `;
+
     });
 
-    const choice = prompt(
-      text + '\nEnter file number to open:'
-    );
+    html += `
 
-    if (!choice) return;
+      <button
+      onclick="closeHistoryPopup()"
+      style="
+      width:100%;
+      margin-top:10px;
+      padding:10px;
+      border:none;
+      border-radius:10px;
+      background:#eee;
+      cursor:pointer;
+      ">
+      Close
+      </button>
 
-    const index = parseInt(choice) - 1;
+      </div>
+      </div>
+    `;
 
-    if (index < 0 || index >= files.length) {
-      toast('Invalid selection', 'err');
-      return;
-    }
+    document.body.insertAdjacentHTML('beforeend', html);
 
-    const selected = files[index];
+  } catch(e) {
 
-    const switchRes = await fetch('/api/files/switch', {
+    console.log(e);
 
-      method: 'POST',
+    toast('Failed to open history', 'err');
 
-      headers: {
-        'Content-Type': 'application/json'
+  }
+
+}
+
+function closeHistoryPopup() {
+
+  const popup = document.getElementById('historyPopup');
+
+  if (popup) {
+    popup.remove();
+  }
+
+}
+
+async function openExcelFile(fileId) {
+
+  try {
+
+    const res = await fetch('/api/files/switch', {
+
+      method:'POST',
+
+      headers:{
+        'Content-Type':'application/json'
       },
 
-      body: JSON.stringify({
-        fileId: selected.id
+      body:JSON.stringify({
+        fileId:fileId
       })
 
     });
 
-    const data = await switchRes.json();
+    const data = await res.json();
 
-    if (!switchRes.ok) {
+    if(!res.ok){
       throw new Error(data.error);
     }
 
@@ -994,19 +1102,45 @@ async function openHistoryModal() {
 
     render();
 
-    toast(
-      'Opened "' + selected.name + '"',
-      'ok'
-    );
+    closeHistoryPopup();
+
+    toast('Excel file opened', 'ok');
+
+  } catch(e){
+
+    console.log(e);
+
+    toast('Failed to open file', 'err');
+
+  }
+
+}
+
+async function deleteExcelFile(fileId) {
+
+  if (!confirm('Delete this Excel file? This cannot be undone.')) return;
+
+  try {
+
+    const res = await fetch('/api/files/' + fileId, {
+      method: 'DELETE'
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error);
+    }
+
+    closeHistoryPopup();
+
+    toast('Excel file deleted', 'ok');
 
   } catch(e) {
 
     console.log(e);
 
-    toast(
-      'Failed to open history',
-      'err'
-    );
+    toast('Failed to delete file', 'err');
 
   }
 
