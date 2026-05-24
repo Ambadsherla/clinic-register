@@ -122,7 +122,7 @@ async function loadState(fileId = ACTIVE_FILE_ID) {  const cfgRes = await pool.q
   const cfg    = cfgRes.rows[0];
 
 const sheetsRes = await pool.query(
-  'SELECT id FROM sheets WHERE file_id = $1 ORDER BY position ASC',
+  'SELECT * FROM sheets WHERE file_id = $1 ORDER BY position ASC',
   [fileId]
 );
   const sheets    = [];
@@ -725,4 +725,4 @@ app.delete('/api/files/:id', async (req, res) => {
 
   }
 
-});  
+});
