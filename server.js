@@ -724,11 +724,24 @@ app.delete('/api/files/:id', async (req, res) => {
       [id]
     );
 
+    // reset active file if needed
+    if (ACTIVE_FILE_ID === id) {
+
+      const fileRes = await pool.query(
+        'SELECT id FROM excel_files ORDER BY id ASC LIMIT 1'
+      );
+
+      if (fileRes.rows.length > 0) {
+        ACTIVE_FILE_ID = fileRes.rows[0].id;
+      }
+
+    }
+
     res.json({
       ok: true
     });
 
-  } catch (e) {
+  } catch(e) {
 
     console.log(e);
 
