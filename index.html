@@ -294,6 +294,21 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <div class="topbar">
       <div>
         <div class="page-heading">Patient Register</div>
+
+<div id="activeFileName"
+style="
+margin-top:6px;
+font-size:.85rem;
+font-weight:600;
+color:var(--blue);
+background:var(--blue-bg);
+display:inline-block;
+padding:5px 12px;
+border-radius:999px;
+border:1px solid rgba(43,87,151,.15);
+">
+Excel File: —
+</div>
         <div class="odip-badge" id="nextBadge">Next ODIP: —</div>
       </div>
       <div class="topbar-actions">
@@ -812,7 +827,11 @@ function downloadExcel() {
 
 // ── Render ────────────────────────────────────────────────────────
 function render() {
+
   if (!state) return;
+
+  document.getElementById('activeFileName').textContent =
+  'Excel File: ' + state.activeFile.name;
 
   // Update header ODIP display
   document.getElementById('headerOdip').textContent = state.nextOdip;
@@ -915,7 +934,7 @@ async function openHistoryModal() {
 
   try {
 
-    const res = await fetch('/api/files');
+    const res = await fetch('/api/files/switch');
 
     const files = await res.json();
 
