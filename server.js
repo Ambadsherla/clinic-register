@@ -118,8 +118,15 @@ function randTreatment() {
 }
 
 // ── Load full state from DB ────────────────────────────────────────
-async function loadState(fileId = ACTIVE_FILE_ID) {  const cfgRes = await pool.query('SELECT * FROM clinic_config LIMIT 1');
+async function loadState(fileId = ACTIVE_FILE_ID) {  
+  const cfgRes = await pool.query('SELECT * FROM clinic_config LIMIT 1');
   const cfg    = cfgRes.rows[0];
+  const fileRes = await pool.query(
+  'SELECT * FROM excel_files WHERE id = $1',
+  [fileId]
+);
+
+const activeFile = fileRes.rows[0];
 
 const sheetsRes = await pool.query(
   'SELECT * FROM sheets WHERE file_id = $1 ORDER BY position ASC',
@@ -145,12 +152,18 @@ const sheetsRes = await pool.query(
     });
   }
 
-  return {
-    configured: cfg.configured,
-    startOdip:  cfg.start_odip,
-    nextOdip:   cfg.next_odip,
-    sheets
-  };
+ return {
+  configured: cfg.configured,
+  startOdip: cfg.start_odip,
+  nextOdip: cfg.next_odip,
+
+  activeFile: {
+    id: activeFile.id,
+    name: activeFile.name
+  },
+
+  sheets
+};
 }
 
 // ── Renumber all ODIPs from scratch ───────────────────────────────
