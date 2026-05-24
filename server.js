@@ -588,27 +588,6 @@ app.get('/api/files', async (req, res) => {
 
 });
 
-// GET all excel files
-app.get('/api/files', async (req, res) => {
-
-  try {
-
-    const filesRes = await pool.query(
-      'SELECT * FROM excel_files ORDER BY created_at DESC'
-    );
-
-    res.json(filesRes.rows);
-
-  } catch(e) {
-
-    res.status(500).json({
-      error: e.message
-    });
-
-  }
-
-});
-
 // SWITCH excel file
 app.post('/api/files/switch', async (req, res) => {
 
@@ -649,37 +628,6 @@ const buffer = await buildExcel(state);
   }
 });
 
-// SWITCH active excel file
-app.post('/api/files/switch', async (req, res) => {
-
-  try {
-
-    const { fileId } = req.body;
-
-    if(!fileId){
-      return res.status(400).json({
-        error:'File ID required'
-      });
-    }
-
-    ACTIVE_FILE_ID = fileId;
-
-    const state = await loadState(fileId);
-
-    res.json({
-      ok:true,
-      state
-    });
-
-  } catch(e){
-
-    res.status(500).json({
-      error:e.message
-    });
-
-  }
-
-});
 
 // ── Start ──────────────────────────────────────────────────────────
 initDB().then(() => {
