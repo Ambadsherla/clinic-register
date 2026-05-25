@@ -2,6 +2,8 @@ const express  = require('express');
 const ExcelJS  = require('exceljs');
 const path     = require('path');
 const { Pool } = require('pg');
+const session = require('express-session');
+const bcrypt = require('bcrypt');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -59,6 +61,14 @@ async function initDB() {
     )
   `);
 
+  await pool.query(`
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL
+)
+`);
+
   // Insert default config row if none exists
   const cfg = await pool.query('SELECT id FROM clinic_config LIMIT 1');
   if (cfg.rows.length === 0) {
@@ -87,6 +97,24 @@ if (sh.rows.length === 0) {
     'INSERT INTO sheets (file_id, name, position) VALUES ($1, $2, $3)',
     [fileId, 'Sheet 1', 1]
   );
+}
+
+const userCheck = await pool.query(
+  'SELECT * FROM users LIMIT 1'
+);
+
+if(userCheck.rows.length === 0){
+
+  const hashed = await bcrypt.hash(
+    'admin123',
+    10
+  );
+
+  await pool.query(
+    'INSERT INTO users (username,password) VALUES ($1,$2)',
+    ['admin', hashed]
+  );
+
 }
 
   console.log('  ✅  Database ready');
@@ -241,19 +269,120 @@ async function buildExcel(state) {
 
 // ── Middleware ─────────────────────────────────────────────────────
 app.use(express.json());
+
+app.use(session({
+
+  secret: 'clinic-secret-key',
+
+  resave: false,
+
+  saveUninitialized: false,
+
+  cookie: {
+    secure: false,
+    maxAge: 1000 * 60 * 60 * 24
+  }
+
+}));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+
+  if(!req.session.userId){
+
+    return res.redirect('/login.html');
+
+  }
+
+  res.sendFile(
+    path.join(__dirname, 'public', 'index.html')
+  );
+
 });
+
+function auth(req,res,next){
+
+  if(!req.session.userId){
+
+    return res.status(401).json({
+      error:'Unauthorized'
+    });
+
+  }
+
+  next();
+
+}
 
 // ═══════════════════════════════════════════════════════════════════
 //  API ROUTES
 // ═══════════════════════════════════════════════════════════════════
 
+app.post('/api/login', async (req,res)=>{
+
+  try{
+
+    const { username, password } = req.body;
+
+    const userRes = await pool.query(
+      'SELECT * FROM users WHERE username=$1',
+      [username]
+    );
+
+    if(userRes.rows.length === 0){
+
+      return res.status(401).json({
+        error:'Invalid username'
+      });
+
+    }
+
+    const user = userRes.rows[0];
+
+    const ok = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if(!ok){
+
+      return res.status(401).json({
+        error:'Invalid password'
+      });
+
+    }
+
+    req.session.userId = user.id;
+
+    res.json({
+      ok:true
+    });
+
+  }catch(e){
+
+    res.status(500).json({
+      error:e.message
+    });
+
+  }
+
+});
+
+app.post('/api/logout', (req,res)=>{
+
+  req.session.destroy(()=>{
+
+    res.json({
+      ok:true
+    });
+
+  });
+
+});
+
 // GET full state
-app.get('/api/state', async (req, res) => {
-  try {
+app.get('/api/state', auth, async (req, res) => {  try {
     res.json(await loadState());
   } catch(e) {
     console.error(e);
@@ -280,8 +409,8 @@ app.post('/api/setup', async (req, res) => {
 //  FEATURE 1: Auto New Session on Website Open
 //  POST /api/session — creates new empty sheet, auto-increments position
 // ═══════════════════════════════════════════════════════════════════
-app.post('/api/session', async (req, res) => {
-  try {
+app.post('/api/session', auth, async (req, res) => {
+    try {
 
     const posRes = await pool.query(
       'SELECT COALESCE(MAX(position),0) as maxpos FROM sheets WHERE file_id=$1',
@@ -318,7 +447,7 @@ app.post('/api/session', async (req, res) => {
 //  FEATURE 2: ODIP Control System
 //  POST /api/odip/set — manually set starting ODIP
 // ═══════════════════════════════════════════════════════════════════
-app.post('/api/odip/set', async (req, res) => {
+app.post('/api/odip/set', auth, async (req, res) => {
   const { odip } = req.body;
   if (!odip || odip < 1 || odip > 999999) {
     return res.status(400).json({ error: 'Invalid ODIP number' });
@@ -335,7 +464,7 @@ app.post('/api/odip/set', async (req, res) => {
 });
 
 // GET current ODIP info
-app.get('/api/odip', async (req, res) => {
+app.get('/api/odip', auth , async (req, res) => {
   try {
     const cfgRes = await pool.query('SELECT next_odip, start_odip FROM clinic_config LIMIT 1');
     const cfg = cfgRes.rows[0];
@@ -352,7 +481,7 @@ app.get('/api/odip', async (req, res) => {
 //  FEATURE 4: New Excel File Control
 //  POST /api/excel/new — creates new Excel file (new DB state)
 // ═══════════════════════════════════════════════════════════════════
-app.post('/api/excel/new', async (req, res) => {
+app.post('/api/excel/new', auth, async (req, res) => {
 
   try {
 
@@ -393,7 +522,7 @@ app.post('/api/excel/new', async (req, res) => {
 
 });
 // POST add patient to selected sheet
-app.post('/api/patient', async (req, res) => {
+app.post('/api/patient', auth, async (req, res) => {
   const { name, sheetId } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   try {
@@ -431,8 +560,8 @@ app.post('/api/patient', async (req, res) => {
 });
 
 // DELETE last patient (undo)
-app.delete('/api/patient/last', async (req, res) => {
-  try {
+app.delete('/api/patient/last', auth, async (req, res) => {
+    try {
     const { sheetId } = req.body;
 
 const shRes = await pool.query(
@@ -468,8 +597,8 @@ const shRes = await pool.query(
 });
 
 // PATCH rename sheet
-app.patch('/api/sheet/:id/rename', async (req, res) => {
-  const { name } = req.body;
+app.patch('/api/sheet/:id/rename', auth, async (req, res) => {
+    const { name } = req.body;
   if(!name || !name.trim())
     return res.status(400).json({ error:'Name cannot be empty' });
   try{
@@ -481,8 +610,8 @@ app.patch('/api/sheet/:id/rename', async (req, res) => {
 });
 
 // DELETE sheet
-app.delete('/api/sheet/:id', async (req,res)=>{
-  try{
+app.delete('/api/sheet/:id', auth, async (req,res)=>{
+    try{
     const id=parseInt(req.params.id);
 const countRes = await pool.query(
   'SELECT COUNT(*) FROM sheets WHERE file_id = $1',
@@ -521,8 +650,8 @@ if (cfg.rows.length > 0) {
 });
 
 // DELETE specific patient by DB id
-app.delete('/api/patient/:id', async (req, res) => {
-  try {
+app.delete('/api/patient/:id', auth, async (req, res) => {
+    try {
     const id = parseInt(req.params.id);
     await pool.query('DELETE FROM patients WHERE id = $1', [id]);
     const cfgRes = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
@@ -534,8 +663,7 @@ app.delete('/api/patient/:id', async (req, res) => {
 });
 
 // POST create new sheet (manual)
-app.post('/api/sheet', async (req, res) => {
-
+app.post('/api/sheet', auth, async (req, res) => {
   try {
 
     const countRes = await pool.query(
@@ -568,8 +696,7 @@ app.post('/api/sheet', async (req, res) => {
 });
 
 // GET all excel files
-app.get('/api/files', async (req, res) => {
-
+app.get('/api/files', auth, async (req, res) => {
   try {
 
     const filesRes = await pool.query(
@@ -589,8 +716,7 @@ app.get('/api/files', async (req, res) => {
 });
 
 // SWITCH excel file
-app.post('/api/files/switch', async (req, res) => {
-
+app.post('/api/files/switch', auth, async (req, res) => {
   try {
 
     const { fileId } = req.body;
@@ -615,8 +741,8 @@ app.post('/api/files/switch', async (req, res) => {
 });
 
 // GET download Excel
-app.get('/api/download', async (req, res) => {
-  try {
+app.get('/api/download', auth, async (req, res) => {
+    try {
 const state = await loadState(ACTIVE_FILE_ID);
 
 const buffer = await buildExcel(state);
@@ -642,8 +768,7 @@ initDB().then(() => {
   process.exit(1);
 });
 // DELETE EXCEL FILE
-app.delete('/api/files/:id', async (req, res) => {
-
+app.delete('/api/files/:id', auth, async (req, res) => {
   try {
 
     const id = parseInt(req.params.id);
