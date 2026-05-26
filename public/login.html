@@ -1,111 +1,226 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Clinic Login</title>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinic Register — Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-
-body{
-margin:0;
-font-family:Arial;
-background:#f5f5f5;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:          #F7F5F0;
+  --surface:     #FFFFFF;
+  --surface2:    #FAFAF8;
+  --border:      #DDD9D0;
+  --border2:     #C8C4BB;
+  --sage:        #3D7A5E;
+  --sage2:       #2E6049;
+  --sage-bg:     #EAF4EE;
+  --sage-border: #B8DEC9;
+  --red:         #C0392B;
+  --red-bg:      #FDECEA;
+  --text:        #1C1C1A;
+  --text2:       #4A4844;
+  --text3:       #7A7772;
+  --text4:       #A8A4A0;
+  --sans:'Plus Jakarta Sans',system-ui,sans-serif;
+  --serif:'Lora',Georgia,serif;
 }
-
-.box{
-background:white;
-padding:35px;
-border-radius:16px;
-width:320px;
-box-shadow:0 10px 30px rgba(0,0,0,.1);
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
-
-h2{
-margin-top:0;
-margin-bottom:20px;
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(28,28,26,.12);
+  padding: 48px 52px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
 }
-
-input{
-width:100%;
-padding:12px;
-margin-bottom:14px;
-border:1px solid #ccc;
-border-radius:8px;
-font-size:15px;
+.login-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--sage-bg);
+  border: 1px solid var(--sage-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  font-size: 28px;
 }
-
-button{
-width:100%;
-padding:12px;
-background:#2e7d5b;
-color:white;
-border:none;
-border-radius:8px;
-font-size:15px;
-cursor:pointer;
+.login-title {
+  font-family: var(--serif);
+  font-size: 1.75rem;
+  color: var(--text);
+  margin-bottom: 6px;
 }
-
+.login-sub {
+  font-size: .85rem;
+  color: var(--text3);
+  margin-bottom: 36px;
+}
+.field {
+  text-align: left;
+  margin-bottom: 18px;
+}
+.field label {
+  display: block;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+.field input {
+  width: 100%;
+  padding: 13px 16px;
+  border: 1.5px solid var(--border2);
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: .95rem;
+  color: var(--text);
+  background: var(--surface2);
+  outline: none;
+  transition: border-color .18s, box-shadow .18s;
+}
+.field input:focus {
+  border-color: var(--sage);
+  box-shadow: 0 0 0 3px rgba(61,122,94,.12);
+}
+.btn-login {
+  width: 100%;
+  padding: 14px;
+  background: var(--sage);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: .92rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: all .18s;
+  margin-top: 6px;
+}
+.btn-login:hover {
+  background: var(--sage2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(61,122,94,.3);
+}
+.btn-login:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+  transform: none;
+}
+.error-box {
+  background: var(--red-bg);
+  border: 1px solid rgba(192,57,43,.2);
+  border-radius: 8px;
+  color: var(--red);
+  font-size: .82rem;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  display: none;
+  text-align: left;
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-6px)} 40%{transform:translateX(6px)}
+  60%{transform:translateX(-4px)} 80%{transform:translateX(3px)}
+}
+.shake { animation: shake .35s ease !important; border-color: var(--red) !important; }
+@media(max-width:500px){
+  .login-card { padding: 32px 24px; }
+}
 </style>
 </head>
-
 <body>
+  <div class="login-card">
+    <div class="login-icon">🏥</div>
+    <h2 class="login-title">Clinic Register</h2>
+    <p class="login-sub">Sign in to access the patient register</p>
 
-<div class="box">
+    <div class="error-box" id="errorBox"></div>
 
-<h2>Clinic Login</h2>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="Enter username" autocomplete="username" autofocus>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Enter password" autocomplete="current-password">
+    </div>
 
-<input id="username" placeholder="Username">
-
-<input id="password" type="password" placeholder="Password">
-
-<button onclick="login()">
-Login
-</button>
-
-</div>
+    <button class="btn-login" id="loginBtn" onclick="doLogin()">Sign In →</button>
+  </div>
 
 <script>
+  document.getElementById('username').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('password').focus(); });
+  document.getElementById('password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
-async function login(){
+  async function doLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('loginBtn');
+    const errBox   = document.getElementById('errorBox');
 
-const res = await fetch('/api/login',{
+    if (!username || !password) {
+      showError('Please enter both username and password.');
+      return;
+    }
 
-method:'POST',
+    btn.disabled    = true;
+    btn.textContent = 'Signing in…';
+    errBox.style.display = 'none';
 
-headers:{
-'Content-Type':'application/json'
-},
+    try {
+      const res  = await fetch('/api/login', {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ username, password })
+      });
+      const data = await res.json();
 
-body:JSON.stringify({
+      if (!res.ok) {
+        showError(data.error || 'Invalid credentials. Please try again.');
+        btn.disabled    = false;
+        btn.textContent = 'Sign In →';
+        return;
+      }
 
-username:
-document.getElementById('username').value,
+      // Success — redirect to main app
+      window.location.href = '/';
 
-password:
-document.getElementById('password').value
+    } catch(e) {
+      showError('Cannot connect to server. Please check the server is running.');
+      btn.disabled    = false;
+      btn.textContent = 'Sign In →';
+    }
+  }
 
-})
-
-});
-
-const data = await res.json();
-
-if(res.ok){
-
-location.href='/';
-
-}else{
-
-alert(data.error);
-
-}
-
-}
-
+  function showError(msg) {
+    const errBox = document.getElementById('errorBox');
+    errBox.textContent   = msg;
+    errBox.style.display = 'block';
+    // Shake the card
+    const card = document.querySelector('.login-card');
+    card.style.animation = 'none';
+    card.classList.add('shake');
+    setTimeout(() => card.classList.remove('shake'), 400);
+  }
 </script>
-
 </body>
 </html>
