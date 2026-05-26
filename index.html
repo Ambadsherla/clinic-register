@@ -434,7 +434,9 @@ let startupChoice = 'continue'; // 'continue' or 'custom'
 // ── Boot ─────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   try {
-    const res = await fetch('/api/state');
+const res = await fetch('/api/state', {
+  credentials: 'include'
+});
     if (!res.ok) throw new Error('Server error');
     state = await res.json();
     hide('loadingOverlay');
@@ -508,6 +510,7 @@ async function confirmStartup() {
     try {
       const r = await fetch('/api/odip/set', {
         method: 'POST',
+          credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ odip: val })
       });
@@ -540,12 +543,17 @@ if (!alreadyStarted) {
 // ═══════════════════════════════════════════════════════════════════
 async function createNewSession() {
   try {
-    const res = await fetch('/api/session', { method: 'POST' });
+const res = await fetch('/api/session', {
+  method: 'POST',
+  credentials: 'include'
+});
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
     // Reload state to get fresh data with new sheet
-    const full = await fetch('/api/state');
+const full = await fetch('/api/state', {
+  credentials: 'include'
+});
     state = await full.json();
 
     // Auto-activate the newest sheet (last one)
@@ -587,6 +595,7 @@ async function saveNewOdip() {
   try {
     const r = await fetch('/api/odip/set', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ odip: val })
     });
@@ -621,6 +630,7 @@ async function createNewExcelFile() {
     const res = await fetch('/api/excel/new', {
 
       method: 'POST',
+      credentials: 'include',
 
       headers: {
         'Content-Type': 'application/json'
@@ -638,8 +648,9 @@ async function createNewExcelFile() {
       throw new Error(data.error);
     }
 
-    const full = await fetch('/api/state');
-
+const full = await fetch('/api/state', {
+  credentials: 'include'
+});
     state = await full.json();
 
     activeSheet = state.sheets.length - 1;
@@ -665,11 +676,14 @@ async function submitSetup() {
   try {
     const r = await fetch('/api/setup', {
       method:  'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ startOdip: val })
     });
     if (!r.ok) throw new Error('Setup failed');
-    const res = await fetch('/api/state');
+const res = await fetch('/api/state', {
+  credentials: 'include'
+});
     state = await res.json();
     hide('setupScreen');
     // After first setup, show startup dialog for session creation
@@ -690,6 +704,7 @@ async function savePatient() {
   try {
     const res  = await fetch('/api/patient', {
       method:  'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name,
@@ -718,6 +733,7 @@ async function undoLast() {
 
     const res = await fetch('/api/patient/last', {
       method: 'DELETE',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json'
       },
@@ -766,7 +782,13 @@ function closeDlg()         { hide('sheetDlg'); }
 async function createSheet() {
   closeDlg();
   try {
-    const res  = await fetch('/api/sheet', { method: 'POST' });
+const res = await fetch('/api/sheet', {
+
+  method: 'POST',
+
+  credentials: 'include'
+
+});
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     state.sheets.push({
@@ -807,6 +829,7 @@ async function renameSheet(sheetId, newName) {
   try {
     const res  = await fetch('/api/sheet/' + sheetId + '/rename', {
       method:  'PATCH',
+      credentials:'include',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ name: newName })
     });
@@ -934,8 +957,11 @@ async function openHistoryModal(){
 
   try{
 
-    const res = await fetch('/api/files');
+const res = await fetch('/api/files', {
 
+  credentials:'include'
+
+});
     const files = await res.json();
 
     if(!files.length){
@@ -1005,19 +1031,21 @@ async function openHistoryModal(){
 
 async function openExcelFile(id){
 
-  const res = await fetch('/api/files/switch',{
+ const res = await fetch('/api/files/switch', {
 
-    method:'POST',
+  method:'POST',
 
-    headers:{
-      'Content-Type':'application/json'
-    },
+  credentials:'include',
 
-    body:JSON.stringify({
-      fileId:id
-    })
+  headers:{
+    'Content-Type':'application/json'
+  },
 
-  });
+  body:JSON.stringify({
+    fileId
+  })
+
+});
 
   const data = await res.json();
 
@@ -1112,9 +1140,13 @@ async function deleteExcelFile(fileId) {
 
   try {
 
-    const res = await fetch('/api/files/' + fileId, {
-      method: 'DELETE'
-    });
+   const res = await fetch('/api/files/' + fileId, {
+
+  method:'DELETE',
+
+  credentials:'include'
+
+});
 
     const data = await res.json();
 
