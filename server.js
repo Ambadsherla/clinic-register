@@ -381,7 +381,8 @@ app.post('/api/logout', (req,res)=>{
 });
 
 // GET full state
-app.get('/api/state', auth, async (req, res) => {  try {
+app.get('/api/state', async (req, res) => {
+     try {
     res.json(await loadState());
   } catch(e) {
     console.error(e);
@@ -463,8 +464,8 @@ app.post('/api/odip/set', auth, async (req, res) => {
 });
 
 // GET current ODIP info
-app.get('/api/odip', auth , async (req, res) => {
-  try {
+app.get('/api/odip', async (req, res) => {
+    try {
     const cfgRes = await pool.query('SELECT next_odip, start_odip FROM clinic_config LIMIT 1');
     const cfg = cfgRes.rows[0];
     res.json({ 
