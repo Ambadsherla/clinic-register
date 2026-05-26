@@ -309,8 +309,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <div class="topbar">
       <div>
         <div class="page-heading">Patient Register</div>
-        <div id="activeFileName" style="margin-top:6px;font-size:.85rem;font-weight:600;color:var(--blue);background:var(--blue-bg);display:inline-block;padding:5px 12px;border-radius:999px;border:1px solid rgba(43,87,151,.15);">
-          Excel File: —
+<div
+  id="activeFileName"
+  onclick="renameCurrentExcelOption()"
+  style="
+    margin-top:6px;
+    font-size:.85rem;
+    font-weight:600;
+    color:var(--blue);
+    background:var(--blue-bg);
+    display:inline-block;
+    padding:5px 12px;
+    border-radius:999px;
+    border:1px solid rgba(43,87,151,.15);
+    cursor:pointer;
+  ">
+  Excel File: —
+</div>          Excel File: —
         </div>
         <div class="odip-badge" id="nextBadge">Next ODIP: —</div>
       </div>
@@ -642,6 +657,7 @@ async function createNewExcelFile() {
     render();
     focusInput();
     toast('New Excel File "' + fileName.trim() + '" Created', 'ok');
+    renameCurrentExcelOption();
   } catch(e) {
     toast('Failed to create Excel file: ' + e.message, 'err');
   }
@@ -756,6 +772,48 @@ function openRenameDialog(sheetId, currentName) {
   const newName = prompt('New name for "' + currentName + '":', currentName);
   if (!newName || !newName.trim() || newName.trim() === currentName) return;
   renameSheet(sheetId, newName.trim());
+}
+
+async function renameCurrentExcelOption() {
+
+  const newName = prompt(
+    'Rename Excel File:',
+    state.activeFile.name
+  );
+
+  if (!newName || !newName.trim()) return;
+
+  try {
+
+    const res = await fetch(
+      '/api/files/' + state.activeFile.id + '/rename',
+      {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: newName.trim()
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error);
+
+    state.activeFile.name = data.name;
+
+    render();
+
+    toast('Excel file renamed', 'ok');
+
+  } catch(e) {
+
+    toast(e.message, 'err');
+
+  }
 }
 
 async function renameSheet(sheetId, newName) {
