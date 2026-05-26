@@ -792,7 +792,7 @@ async function deleteSheet(sheetId, sheetName) {
 // ── Download Excel ────────────────────────────────────────────────
 async function downloadExcel() {
   try {
-    const res = await fetch('/api/download', { credentials: 'include' });
+    const res = await fetch('/api/download?fileId=' + state.activeFile.id , { credentials: 'include' });
     if (!res.ok) throw new Error('Download failed');
     const blob = await res.blob();
     const url  = window.URL.createObjectURL(blob);
