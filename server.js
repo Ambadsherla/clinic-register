@@ -409,7 +409,7 @@ app.post('/api/setup', async (req, res) => {
 //  FEATURE 1: Auto New Session on Website Open
 //  POST /api/session — creates new empty sheet, auto-increments position
 // ═══════════════════════════════════════════════════════════════════
-app.post('/api/session', auth, async (req, res) => {
+app.post('/api/session', async (req, res) => {
     try {
 
     const posRes = await pool.query(
@@ -447,7 +447,7 @@ app.post('/api/session', auth, async (req, res) => {
 //  FEATURE 2: ODIP Control System
 //  POST /api/odip/set — manually set starting ODIP
 // ═══════════════════════════════════════════════════════════════════
-app.post('/api/odip/set', auth, async (req, res) => {
+app.post('/api/odip/set', async (req, res) => {
   const { odip } = req.body;
   if (!odip || odip < 1 || odip > 999999) {
     return res.status(400).json({ error: 'Invalid ODIP number' });
@@ -522,7 +522,7 @@ app.post('/api/excel/new', async (req, res) => {
 
 });
 // POST add patient to selected sheet
-app.post('/api/patient', auth, async (req, res) => {
+app.post('/api/patient', async (req, res) => {
   const { name, sheetId } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
   try {
@@ -560,7 +560,7 @@ app.post('/api/patient', auth, async (req, res) => {
 });
 
 // DELETE last patient (undo)
-app.delete('/api/patient/last', auth, async (req, res) => {
+app.delete('/api/patient/last', async (req, res) => {
     try {
     const { sheetId } = req.body;
 
@@ -597,7 +597,7 @@ const shRes = await pool.query(
 });
 
 // PATCH rename sheet
-app.patch('/api/sheet/:id/rename', auth, async (req, res) => {
+app.patch('/api/sheet/:id/rename', async (req, res) => {
     const { name } = req.body;
   if(!name || !name.trim())
     return res.status(400).json({ error:'Name cannot be empty' });
@@ -610,7 +610,7 @@ app.patch('/api/sheet/:id/rename', auth, async (req, res) => {
 });
 
 // DELETE sheet
-app.delete('/api/sheet/:id', auth, async (req,res)=>{
+app.delete('/api/sheet/:id', async (req,res)=>{
     try{
     const id=parseInt(req.params.id);
 const countRes = await pool.query(
@@ -650,7 +650,7 @@ if (cfg.rows.length > 0) {
 });
 
 // DELETE specific patient by DB id
-app.delete('/api/patient/:id', auth, async (req, res) => {
+app.delete('/api/patient/:id', async (req, res) => {
     try {
     const id = parseInt(req.params.id);
     await pool.query('DELETE FROM patients WHERE id = $1', [id]);
@@ -696,7 +696,7 @@ app.post('/api/sheet', async (req, res) => {
 });
 
 // GET all excel files
-app.get('/api/files', auth, async (req, res) => {
+app.get('/api/files', async (req, res) => {
   try {
 
     const filesRes = await pool.query(
@@ -716,7 +716,7 @@ app.get('/api/files', auth, async (req, res) => {
 });
 
 // SWITCH excel file
-app.post('/api/files/switch', auth, async (req, res) => {
+app.post('/api/files/switch', async (req, res) => {
   try {
 
     const { fileId } = req.body;
@@ -741,7 +741,7 @@ app.post('/api/files/switch', auth, async (req, res) => {
 });
 
 // GET download Excel
-app.get('/api/download', auth, async (req, res) => {
+app.get('/api/download', async (req, res) => {
     try {
 const state = await loadState(ACTIVE_FILE_ID);
 
