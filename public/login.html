@@ -20,6 +20,8 @@
   --sage-border: #B8DEC9;
   --red:         #C0392B;
   --red-bg:      #FDECEA;
+  --green:       #166534;
+  --green-bg:    #DCFCE7;
   --text:        #1C1C1A;
   --text2:       #4A4844;
   --text3:       #7A7772;
@@ -68,8 +70,41 @@ body {
 .login-sub {
   font-size: .85rem;
   color: var(--text3);
-  margin-bottom: 36px;
+  margin-bottom: 28px;
 }
+/* ── Tab switcher ─────────────────────────────────── */
+.tab-row {
+  display: flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 28px;
+  gap: 4px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  font-family: var(--sans);
+  font-size: .82rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--text3);
+  cursor: pointer;
+  transition: all .18s;
+}
+.tab-btn.active {
+  background: var(--surface);
+  color: var(--sage);
+  box-shadow: 0 1px 6px rgba(28,28,26,.1);
+}
+/* ── Panels ───────────────────────────────────────── */
+.panel { display: none; }
+.panel.active { display: block; }
+/* ── Fields (same as original) ───────────────────── */
 .field {
   text-align: left;
   margin-bottom: 18px;
@@ -99,6 +134,7 @@ body {
   border-color: var(--sage);
   box-shadow: 0 0 0 3px rgba(61,122,94,.12);
 }
+/* ── Button (same as original) ───────────────────── */
 .btn-login {
   width: 100%;
   padding: 14px;
@@ -124,6 +160,7 @@ body {
   cursor: not-allowed;
   transform: none;
 }
+/* ── Error / Success boxes ────────────────────────── */
 .error-box {
   background: var(--red-bg);
   border: 1px solid rgba(192,57,43,.2);
@@ -135,6 +172,30 @@ body {
   display: none;
   text-align: left;
 }
+.success-box {
+  background: var(--green-bg);
+  border: 1px solid rgba(22,101,52,.2);
+  border-radius: 8px;
+  color: var(--green);
+  font-size: .82rem;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  display: none;
+  text-align: left;
+}
+/* ── Switch hint ──────────────────────────────────── */
+.switch-hint {
+  font-size: .8rem;
+  color: var(--text3);
+  margin-top: 16px;
+}
+.switch-hint a {
+  color: var(--sage);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.switch-hint a:hover { text-decoration: underline; }
 @keyframes shake {
   0%,100%{transform:translateX(0)}
   20%{transform:translateX(-6px)} 40%{transform:translateX(6px)}
@@ -150,34 +211,91 @@ body {
   <div class="login-card">
     <div class="login-icon">🏥</div>
     <h2 class="login-title">Clinic Register</h2>
-    <p class="login-sub">Sign in to access the patient register</p>
+    <p class="login-sub">Patient management system</p>
 
-    <div class="error-box" id="errorBox"></div>
-
-    <div class="field">
-      <label>Username</label>
-      <input type="text" id="username" placeholder="Enter username" autocomplete="username" autofocus>
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input type="password" id="password" placeholder="Enter password" autocomplete="current-password">
+    <!-- Tab switcher -->
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabLogin"  onclick="switchTab('login')">Sign In</button>
+      <button class="tab-btn"        id="tabSignup" onclick="switchTab('signup')">Sign Up</button>
     </div>
 
-    <button class="btn-login" id="loginBtn" onclick="doLogin()">Sign In →</button>
+    <!-- ══ SIGN IN PANEL ══ -->
+    <div class="panel active" id="loginPanel">
+      <div class="error-box" id="loginError"></div>
+
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username" autofocus>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="loginPassword" placeholder="Enter password" autocomplete="current-password">
+      </div>
+
+      <button class="btn-login" id="loginBtn" onclick="doLogin()">Sign In →</button>
+
+      <div class="switch-hint">
+        Don't have an account? <a onclick="switchTab('signup')">Sign Up</a>
+      </div>
+    </div>
+
+    <!-- ══ SIGN UP PANEL ══ -->
+    <div class="panel" id="signupPanel">
+      <div class="error-box"   id="signupError"></div>
+      <div class="success-box" id="signupSuccess"></div>
+
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="signupUsername" placeholder="Choose a username" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="signupPassword" placeholder="Create a password" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input type="password" id="signupConfirm" placeholder="Re-enter password" autocomplete="new-password">
+      </div>
+
+      <button class="btn-login" id="signupBtn" onclick="doSignup()">Create Account →</button>
+
+      <div class="switch-hint">
+        Already have an account? <a onclick="switchTab('login')">Sign In</a>
+      </div>
+    </div>
+
   </div>
 
 <script>
-  document.getElementById('username').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('password').focus(); });
-  document.getElementById('password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+  // ── Tab switching ──────────────────────────────────
+  function switchTab(tab) {
+    document.getElementById('loginPanel').classList.toggle('active',  tab === 'login');
+    document.getElementById('signupPanel').classList.toggle('active', tab === 'signup');
+    document.getElementById('tabLogin').classList.toggle('active',    tab === 'login');
+    document.getElementById('tabSignup').classList.toggle('active',   tab === 'signup');
+    ['loginError','signupError','signupSuccess'].forEach(function(id) {
+      document.getElementById(id).style.display = 'none';
+    });
+    if (tab === 'login')  document.getElementById('loginUsername').focus();
+    if (tab === 'signup') document.getElementById('signupUsername').focus();
+  }
 
+  // ── Keyboard navigation ────────────────────────────
+  document.getElementById('loginUsername').addEventListener('keydown', function(e) { if(e.key==='Enter') document.getElementById('loginPassword').focus(); });
+  document.getElementById('loginPassword').addEventListener('keydown', function(e) { if(e.key==='Enter') doLogin(); });
+  document.getElementById('signupUsername').addEventListener('keydown', function(e) { if(e.key==='Enter') document.getElementById('signupPassword').focus(); });
+  document.getElementById('signupPassword').addEventListener('keydown', function(e) { if(e.key==='Enter') document.getElementById('signupConfirm').focus(); });
+  document.getElementById('signupConfirm').addEventListener('keydown', function(e) { if(e.key==='Enter') doSignup(); });
+
+  // ── SIGN IN ────────────────────────────────────────
   async function doLogin() {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const btn      = document.getElementById('loginBtn');
-    const errBox   = document.getElementById('errorBox');
+    var username = document.getElementById('loginUsername').value.trim();
+    var password = document.getElementById('loginPassword').value;
+    var btn      = document.getElementById('loginBtn');
+    var errBox   = document.getElementById('loginError');
 
     if (!username || !password) {
-      showError('Please enter both username and password.');
+      showError('loginError', 'Please enter both username and password.');
       return;
     }
 
@@ -186,16 +304,16 @@ body {
     errBox.style.display = 'none';
 
     try {
-      const res  = await fetch('/api/login', {
+      var res  = await fetch('/api/login', {
         method:      'POST',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ username, password })
+        body:        JSON.stringify({ username: username, password: password })
       });
-      const data = await res.json();
+      var data = await res.json();
 
       if (!res.ok) {
-        showError(data.error || 'Invalid credentials. Please try again.');
+        showError('loginError', data.error || 'Invalid credentials. Please try again.');
         btn.disabled    = false;
         btn.textContent = 'Sign In →';
         return;
@@ -205,21 +323,85 @@ body {
       window.location.href = '/';
 
     } catch(e) {
-      showError('Cannot connect to server. Please check the server is running.');
+      showError('loginError', 'Cannot connect to server. Please check the server is running.');
       btn.disabled    = false;
       btn.textContent = 'Sign In →';
     }
   }
 
-  function showError(msg) {
-    const errBox = document.getElementById('errorBox');
-    errBox.textContent   = msg;
-    errBox.style.display = 'block';
-    // Shake the card
-    const card = document.querySelector('.login-card');
+  // ── SIGN UP ────────────────────────────────────────
+  async function doSignup() {
+    var username = document.getElementById('signupUsername').value.trim();
+    var password = document.getElementById('signupPassword').value;
+    var confirm  = document.getElementById('signupConfirm').value;
+    var btn      = document.getElementById('signupBtn');
+
+    document.getElementById('signupError').style.display   = 'none';
+    document.getElementById('signupSuccess').style.display = 'none';
+
+    if (!username) {
+      showError('signupError', 'Please enter a username.');
+      return;
+    }
+    if (!password) {
+      showError('signupError', 'Please enter a password.');
+      return;
+    }
+    if (password !== confirm) {
+      showError('signupError', 'Passwords do not match.');
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Creating account…';
+
+    try {
+      var res  = await fetch('/api/signup', {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify({ username: username, password: password })
+      });
+      var data = await res.json();
+
+      if (!res.ok) {
+        showError('signupError', data.error || 'Sign up failed. Please try again.');
+        btn.disabled    = false;
+        btn.textContent = 'Create Account →';
+        return;
+      }
+
+      // Show success message
+      var successBox = document.getElementById('signupSuccess');
+      successBox.textContent = '✓ Account created! You can now sign in.';
+      successBox.style.display = 'block';
+      btn.disabled    = false;
+      btn.textContent = 'Create Account →';
+
+      // Clear fields
+      document.getElementById('signupUsername').value = '';
+      document.getElementById('signupPassword').value = '';
+      document.getElementById('signupConfirm').value  = '';
+
+      // Auto switch to Sign In after 1.5s
+      setTimeout(function() { switchTab('login'); }, 1500);
+
+    } catch(e) {
+      showError('signupError', 'Cannot connect to server. Please check the server is running.');
+      btn.disabled    = false;
+      btn.textContent = 'Create Account →';
+    }
+  }
+
+  // ── Helper ─────────────────────────────────────────
+  function showError(id, msg) {
+    var box = document.getElementById(id);
+    box.textContent   = msg;
+    box.style.display = 'block';
+    var card = document.querySelector('.login-card');
     card.style.animation = 'none';
     card.classList.add('shake');
-    setTimeout(() => card.classList.remove('shake'), 400);
+    setTimeout(function() { card.classList.remove('shake'); }, 400);
   }
 </script>
 </body>
