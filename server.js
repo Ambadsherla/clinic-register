@@ -663,7 +663,7 @@ app.delete('/api/patient/:id', auth, async (req, res) => {
 });
 
 // POST create new sheet (manual)
-app.post('/api/sheet', auth, async (req, res) => {
+app.post('/api/sheet', async (req, res) => {
   try {
 
     const countRes = await pool.query(
