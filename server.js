@@ -688,7 +688,12 @@ app.delete('/api/patient/:id', auth, async (req, res) => {
 
 app.get('/api/download', auth, async (req, res) => {
   try {
-    const state  = await loadState(req.session.userId);
+const fileId = req.query.fileId;
+
+const state = await loadState(
+  req.session.userId,
+  fileId
+);
     const buffer = await buildExcel(state);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${state.activeFile.name}.xlsx"`);
