@@ -481,7 +481,7 @@ app.get('/api/odip', async (req, res) => {
 //  FEATURE 4: New Excel File Control
 //  POST /api/excel/new — creates new Excel file (new DB state)
 // ═══════════════════════════════════════════════════════════════════
-app.post('/api/excel/new', auth, async (req, res) => {
+app.post('/api/excel/new', async (req, res) => {
 
   try {
 
