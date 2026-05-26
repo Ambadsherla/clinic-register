@@ -1,3 +1,5 @@
+
+
 const express  = require('express');
 const ExcelJS  = require('exceljs');
 const path     = require('path');
@@ -494,43 +496,6 @@ app.post('/api/files/switch', auth, async (req, res) => {
     const state = await loadState(req.session.userId, fileId);
     res.json({ ok: true, state });
   } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// PATCH /api/files/:id/rename
-app.patch('/api/files/:id/rename', auth, async (req, res) => {
-  try {
-    const fileId = parseInt(req.params.id);
-    const userId = req.session.userId;
-    const { name } = req.body;
-
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'File name required' });
-    }
-
-    // check ownership
-    const check = await pool.query(
-      'SELECT id FROM excel_files WHERE id = $1 AND user_id = $2',
-      [fileId, userId]
-    );
-
-    if (!check.rows.length) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    await pool.query(
-      'UPDATE excel_files SET name = $1 WHERE id = $2',
-      [name.trim(), fileId]
-    );
-
-    res.json({
-      ok: true,
-      name: name.trim()
-    });
-
-  } catch(e) {
-    console.error(e);
     res.status(500).json({ error: e.message });
   }
 });
