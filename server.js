@@ -381,6 +381,50 @@ app.post('/api/logout', (req,res)=>{
 
 });
 
+// ── Sign Up ────────────────────────────────────────────────────────
+app.post('/api/signup', async (req, res) => {
+
+  try {
+
+    const { username, password } = req.body;
+
+    if (!username || !username.trim()) {
+      return res.status(400).json({ error: 'Username is required.' });
+    }
+
+    if (!password || password.length < 1) {
+      return res.status(400).json({ error: 'Password is required.' });
+    }
+
+    // Check if username already exists
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE username = $1',
+      [username.trim()]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'Username already taken. Please choose another.' });
+    }
+
+    // Hash password and insert
+    const hashed = await bcrypt.hash(password, 10);
+
+    await pool.query(
+      'INSERT INTO users (username, password) VALUES ($1, $2)',
+      [username.trim(), hashed]
+    );
+
+    res.status(201).json({ ok: true });
+
+  } catch(e) {
+
+    console.error(e);
+    res.status(500).json({ error: e.message });
+
+  }
+
+});
+
 // GET full state
 app.get('/api/state', auth, async (req, res) => {
      try {
