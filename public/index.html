@@ -1,668 +1,629 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Clinic Register — Sign In</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg:          #F7F5F0;
-  --surface:     #FFFFFF;
-  --surface2:    #FAFAF8;
-  --border:      #DDD9D0;
-  --border2:     #C8C4BB;
-  --sage:        #3D7A5E;
-  --sage2:       #2E6049;
-  --sage-bg:     #EAF4EE;
-  --sage-border: #B8DEC9;
-  --red:         #C0392B;
-  --red-bg:      #FDECEA;
-  --amber:       #B45309;
-  --amber-bg:    #FEF3E2;
-  --green:       #166534;
-  --green-bg:    #DCFCE7;
-  --text:        #1C1C1A;
-  --text2:       #4A4844;
-  --text3:       #7A7772;
-  --text4:       #A8A4A0;
-  --sans:        'Plus Jakarta Sans', system-ui, sans-serif;
-  --serif:       'Lora', Georgia, serif;
-}
+const express  = require('express');
+const ExcelJS  = require('exceljs');
+const path     = require('path');
+const { Pool } = require('pg');
+const session = require('express-session');
+const bcrypt = require('bcrypt');
+const app  = express();
+const PORT = process.env.PORT || 3000;
+let ACTIVE_FILE_ID = 1;
 
-body {
-  font-family: var(--sans);
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
+// ── PostgreSQL connection ──────────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL
+    ? { rejectUnauthorized: false }
+    : false
+});
 
-/* ── Card ──────────────────────────────────────────── */
-.auth-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  box-shadow: 0 8px 48px rgba(28,28,26,.13);
-  padding: 44px 52px 48px;
-  max-width: 440px;
-  width: 100%;
-  text-align: center;
-}
+// ── Create tables if they don't exist ─────────────────────────────
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS excel_files (
+      id SERIAL PRIMARY KEY,
+      name TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
 
-.auth-icon {
-  width: 62px;
-  height: 62px;
-  border-radius: 15px;
-  background: var(--sage-bg);
-  border: 1px solid var(--sage-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 20px;
-  font-size: 26px;
-}
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS clinic_config (
+      id         SERIAL PRIMARY KEY,
+      configured BOOLEAN   DEFAULT false,
+      start_odip INTEGER   DEFAULT 1,
+      next_odip  INTEGER   DEFAULT 1
+    )
+  `);
 
-.auth-title {
-  font-family: var(--serif);
-  font-size: 1.7rem;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-.auth-sub {
-  font-size: .84rem;
-  color: var(--text3);
-  margin-bottom: 28px;
-}
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sheets (
+      id SERIAL PRIMARY KEY,
+      file_id INTEGER REFERENCES excel_files(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
 
-/* ── Tabs ──────────────────────────────────────────── */
-.tab-row {
-  display: flex;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 4px;
-  margin-bottom: 28px;
-  gap: 4px;
-}
-.tab-btn {
-  flex: 1;
-  padding: 9px 0;
-  border: none;
-  background: transparent;
-  border-radius: 7px;
-  font-family: var(--sans);
-  font-size: .82rem;
-  font-weight: 700;
-  letter-spacing: .04em;
-  color: var(--text3);
-  cursor: pointer;
-  transition: all .18s;
-}
-.tab-btn.active {
-  background: var(--surface);
-  color: var(--sage);
-  box-shadow: 0 1px 6px rgba(28,28,26,.1);
-}
+  await pool.query(`
+    ALTER TABLE sheets
+    ADD COLUMN IF NOT EXISTS file_id INTEGER
+  `);
 
-/* ── Forms ─────────────────────────────────────────── */
-.form-panel { display: none; }
-.form-panel.active { display: block; }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS patients (
+      id         SERIAL PRIMARY KEY,
+      sheet_id   INTEGER REFERENCES sheets(id) ON DELETE CASCADE,
+      odip       INTEGER NOT NULL,
+      name       TEXT    NOT NULL,
+      treatment  TEXT    NOT NULL,
+      amount     INTEGER NOT NULL,
+      position   INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
 
-.field { text-align: left; margin-bottom: 16px; }
-.field label {
-  display: block;
-  font-size: .7rem;
-  font-weight: 700;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--text3);
-  margin-bottom: 7px;
-}
-.field input {
-  width: 100%;
-  padding: 12px 15px;
-  border: 1.5px solid var(--border2);
-  border-radius: 9px;
-  font-family: var(--sans);
-  font-size: .93rem;
-  color: var(--text);
-  background: var(--surface2);
-  outline: none;
-  transition: border-color .18s, box-shadow .18s;
-}
-.field input:focus {
-  border-color: var(--sage);
-  box-shadow: 0 0 0 3px rgba(61,122,94,.1);
-  background: var(--surface);
-}
-.field input.error {
-  border-color: var(--red);
-  background: var(--red-bg);
-}
+  // ── Users table with full_name ─────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id        SERIAL PRIMARY KEY,
+      username  TEXT UNIQUE NOT NULL,
+      password  TEXT NOT NULL,
+      full_name TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
 
-/* Password strength bar */
-.pw-strength-wrap { margin-top: 8px; display: none; }
-.pw-strength-wrap.show { display: block; }
-.pw-strength-bar {
-  height: 4px;
-  border-radius: 99px;
-  background: var(--border);
-  overflow: hidden;
-}
-.pw-strength-fill {
-  height: 100%;
-  border-radius: 99px;
-  transition: width .3s, background .3s;
-  width: 0%;
-}
-.pw-strength-label {
-  font-size: .68rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  margin-top: 5px;
-}
+  // Add full_name column to existing tables (safe migration)
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS full_name TEXT DEFAULT ''
+  `);
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()
+  `);
 
-/* ── Buttons ───────────────────────────────────────── */
-.btn-auth {
-  width: 100%;
-  padding: 13px;
-  background: var(--sage);
-  color: white;
-  border: none;
-  border-radius: 9px;
-  font-family: var(--sans);
-  font-size: .9rem;
-  font-weight: 700;
-  letter-spacing: .04em;
-  cursor: pointer;
-  transition: all .18s;
-  margin-top: 6px;
-  position: relative;
-}
-.btn-auth:hover {
-  background: var(--sage2);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 18px rgba(61,122,94,.28);
-}
-.btn-auth:disabled {
-  opacity: .55;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-.btn-auth .btn-spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255,255,255,.4);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin .6s linear infinite;
-  vertical-align: middle;
-  margin-right: 6px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Alert boxes ───────────────────────────────────── */
-.alert {
-  border-radius: 9px;
-  font-size: .82rem;
-  padding: 11px 14px;
-  margin-bottom: 18px;
-  display: none;
-  text-align: left;
-  line-height: 1.5;
-}
-.alert.show { display: block; }
-.alert-err  { background: var(--red-bg);   border: 1px solid rgba(192,57,43,.2); color: var(--red); }
-.alert-ok   { background: var(--green-bg); border: 1px solid rgba(22,101,52,.2);  color: var(--green); }
-.alert-warn { background: var(--amber-bg); border: 1px solid rgba(180,83,9,.18); color: var(--amber); }
-
-/* ── Password visibility toggle ───────────────────── */
-.pw-wrap { position: relative; }
-.pw-toggle {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text4);
-  font-size: .82rem;
-  font-family: var(--sans);
-  font-weight: 600;
-  padding: 2px 4px;
-  transition: color .15s;
-}
-.pw-toggle:hover { color: var(--sage); }
-
-/* ── Divider ───────────────────────────────────────── */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 18px 0;
-  color: var(--text4);
-  font-size: .72rem;
-}
-.divider::before, .divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
-/* ── Switch link ───────────────────────────────────── */
-.switch-hint {
-  font-size: .8rem;
-  color: var(--text3);
-  margin-top: 18px;
-}
-.switch-hint a {
-  color: var(--sage);
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-}
-.switch-hint a:hover { text-decoration: underline; }
-
-/* ── Requirements list ─────────────────────────────── */
-.req-list {
-  text-align: left;
-  list-style: none;
-  margin-top: 8px;
-  display: none;
-}
-.req-list.show { display: block; }
-.req-item {
-  font-size: .72rem;
-  color: var(--text4);
-  padding: 2px 0;
-  transition: color .2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.req-item::before {
-  content: '○';
-  font-size: .6rem;
-  flex-shrink: 0;
-  transition: all .2s;
-}
-.req-item.met { color: var(--sage); }
-.req-item.met::before { content: '●'; }
-
-@keyframes shake {
-  0%,100%{transform:translateX(0)}
-  20%{transform:translateX(-6px)} 40%{transform:translateX(6px)}
-  60%{transform:translateX(-4px)} 80%{transform:translateX(3px)}
-}
-.shake { animation: shake .35s ease; }
-
-@media(max-width:500px){
-  .auth-card { padding: 32px 22px 36px; }
-}
-</style>
-</head>
-<body>
-<div class="auth-card" id="authCard">
-
-  <div class="auth-icon">🏥</div>
-  <h2 class="auth-title">Clinic Register</h2>
-  <p class="auth-sub">Patient management for your clinic</p>
-
-  <!-- Tabs -->
-  <div class="tab-row">
-    <button class="tab-btn active" id="tabLogin" onclick="switchTab('login')">Sign In</button>
-    <button class="tab-btn"        id="tabSignup" onclick="switchTab('signup')">Create Account</button>
-  </div>
-
-  <!-- ══ LOGIN FORM ══ -->
-  <div class="form-panel active" id="loginPanel">
-    <div class="alert alert-err" id="loginErr"></div>
-    <div class="alert alert-ok"  id="loginOk"></div>
-
-    <div class="field">
-      <label>Username</label>
-      <input type="text" id="loginUsername" placeholder="Enter your username"
-             autocomplete="username" autofocus>
-    </div>
-
-    <div class="field">
-      <label>Password</label>
-      <div class="pw-wrap">
-        <input type="password" id="loginPassword" placeholder="Enter your password"
-               autocomplete="current-password" style="padding-right:56px">
-        <button class="pw-toggle" type="button" onclick="togglePw('loginPassword', this)">Show</button>
-      </div>
-    </div>
-
-    <button class="btn-auth" id="loginBtn" onclick="doLogin()">Sign In →</button>
-
-    <div class="switch-hint">
-      Don't have an account? <a onclick="switchTab('signup')">Create one</a>
-    </div>
-  </div>
-
-  <!-- ══ SIGNUP FORM ══ -->
-  <div class="form-panel" id="signupPanel">
-    <div class="alert alert-err"  id="signupErr"></div>
-    <div class="alert alert-ok"   id="signupOk"></div>
-    <div class="alert alert-warn" id="signupWarn">
-      ⚠ Only authorised clinic staff should create accounts.
-    </div>
-
-    <div class="field">
-      <label>Full Name</label>
-      <input type="text" id="signupName" placeholder="e.g. Dr. Priya Sharma"
-             autocomplete="name">
-    </div>
-
-    <div class="field">
-      <label>Username</label>
-      <input type="text" id="signupUsername" placeholder="Choose a username (no spaces)"
-             autocomplete="username" oninput="validateUsername(this)">
-    </div>
-
-    <div class="field">
-      <label>Password</label>
-      <div class="pw-wrap">
-        <input type="password" id="signupPassword" placeholder="Create a strong password"
-               autocomplete="new-password" style="padding-right:56px"
-               oninput="checkStrength(this.value); checkReqs(this.value)">
-        <button class="pw-toggle" type="button" onclick="togglePw('signupPassword', this)">Show</button>
-      </div>
-      <div class="pw-strength-wrap" id="strengthWrap">
-        <div class="pw-strength-bar"><div class="pw-strength-fill" id="strengthFill"></div></div>
-        <div class="pw-strength-label" id="strengthLabel"></div>
-      </div>
-      <ul class="req-list" id="reqList">
-        <li class="req-item" id="req-len">At least 6 characters</li>
-        <li class="req-item" id="req-upper">One uppercase letter</li>
-        <li class="req-item" id="req-num">One number</li>
-      </ul>
-    </div>
-
-    <div class="field">
-      <label>Confirm Password</label>
-      <div class="pw-wrap">
-        <input type="password" id="signupConfirm" placeholder="Re-enter your password"
-               autocomplete="new-password" style="padding-right:56px"
-               oninput="checkConfirm()">
-        <button class="pw-toggle" type="button" onclick="togglePw('signupConfirm', this)">Show</button>
-      </div>
-    </div>
-
-    <button class="btn-auth" id="signupBtn" onclick="doSignup()">Create Account →</button>
-
-    <div class="switch-hint">
-      Already have an account? <a onclick="switchTab('login')">Sign in</a>
-    </div>
-  </div>
-
-</div>
-
-<script>
-/* ════════════════════════════════════════════════════
-   AUTH — Sign In + Sign Up
-════════════════════════════════════════════════════ */
-
-// ── Tab switching ──────────────────────────────────
-function switchTab(tab) {
-  document.getElementById('loginPanel').classList.toggle('active', tab === 'login');
-  document.getElementById('signupPanel').classList.toggle('active', tab === 'signup');
-  document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
-  document.getElementById('tabSignup').classList.toggle('active', tab === 'signup');
-  clearAlerts();
-  if (tab === 'login')  document.getElementById('loginUsername').focus();
-  if (tab === 'signup') {
-    document.getElementById('signupWarn').classList.add('show');
-    document.getElementById('signupName').focus();
+  // Insert default config row if none exists
+  const cfg = await pool.query('SELECT id FROM clinic_config LIMIT 1');
+  if (cfg.rows.length === 0) {
+    await pool.query('INSERT INTO clinic_config (configured, start_odip, next_odip) VALUES (false, 1, 1)');
   }
-}
 
-// ── Password visibility ────────────────────────────
-function togglePw(id, btn) {
-  const inp = document.getElementById(id);
-  if (inp.type === 'password') { inp.type = 'text';     btn.textContent = 'Hide'; }
-  else                         { inp.type = 'password'; btn.textContent = 'Show'; }
-}
-
-// ── Username validation ────────────────────────────
-function validateUsername(el) {
-  el.value = el.value.replace(/\s/g, '').toLowerCase();
-}
-
-// ── Password strength ──────────────────────────────
-function checkStrength(pw) {
-  const wrap  = document.getElementById('strengthWrap');
-  const fill  = document.getElementById('strengthFill');
-  const label = document.getElementById('strengthLabel');
-  const reqs  = document.getElementById('reqList');
-
-  if (!pw) {
-    wrap.classList.remove('show');
-    reqs.classList.remove('show');
-    return;
-  }
-  wrap.classList.add('show');
-  reqs.classList.add('show');
-
-  let score = 0;
-  if (pw.length >= 6)          score++;
-  if (pw.length >= 10)         score++;
-  if (/[A-Z]/.test(pw))        score++;
-  if (/[0-9]/.test(pw))        score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-
-  const levels = [
-    { pct: '15%',  color: '#C0392B', text: 'Very Weak' },
-    { pct: '32%',  color: '#E67E22', text: 'Weak' },
-    { pct: '55%',  color: '#F1C40F', text: 'Fair' },
-    { pct: '78%',  color: '#27AE60', text: 'Strong' },
-    { pct: '100%', color: '#16A085', text: 'Excellent' },
-  ];
-  const lvl = levels[Math.min(score, 4)];
-  fill.style.width      = lvl.pct;
-  fill.style.background = lvl.color;
-  label.textContent     = lvl.text;
-  label.style.color     = lvl.color;
-}
-
-function checkReqs(pw) {
-  setReq('req-len',   pw.length >= 6);
-  setReq('req-upper', /[A-Z]/.test(pw));
-  setReq('req-num',   /[0-9]/.test(pw));
-}
-
-function setReq(id, met) {
-  document.getElementById(id).classList.toggle('met', met);
-}
-
-function checkConfirm() {
-  const pw  = document.getElementById('signupPassword').value;
-  const cf  = document.getElementById('signupConfirm');
-  if (cf.value && cf.value !== pw) {
-    cf.classList.add('error');
+  // Insert default Excel file if none exists
+  const fileRes = await pool.query('SELECT id FROM excel_files LIMIT 1');
+  let fileId;
+  if (fileRes.rows.length === 0) {
+    const newFile = await pool.query(
+      "INSERT INTO excel_files (name) VALUES ('Default File') RETURNING id"
+    );
+    fileId = newFile.rows[0].id;
   } else {
-    cf.classList.remove('error');
+    fileId = fileRes.rows[0].id;
   }
+  ACTIVE_FILE_ID = fileId;
+
+  // Insert default Sheet 1 if no sheets exist
+  const sh = await pool.query('SELECT id FROM sheets LIMIT 1');
+  if (sh.rows.length === 0) {
+    await pool.query(
+      'INSERT INTO sheets (file_id, name, position) VALUES ($1, $2, $3)',
+      [fileId, 'Sheet 1', 1]
+    );
+  }
+
+  // Insert default admin user only if NO users exist at all
+  const userCheck = await pool.query('SELECT * FROM users LIMIT 1');
+  if (userCheck.rows.length === 0) {
+    const hashed = await bcrypt.hash('admin123', 10);
+    await pool.query(
+      'INSERT INTO users (username, password, full_name) VALUES ($1, $2, $3)',
+      ['admin', hashed, 'Administrator']
+    );
+    console.log('  ℹ  Default admin user created: admin / admin123');
+  }
+
+  console.log('  ✅  Database ready');
 }
 
-// ── Alert helpers ──────────────────────────────────
-function showAlert(id, msg) {
-  const el = document.getElementById(id);
-  el.textContent = msg;
-  el.classList.add('show');
+// ── All 17 Treatments ──────────────────────────────────────────────
+const TREATMENTS = [
+  { name: 'PA-Para, Amox260, Famtab, Avil',              amount: 70  },
+  { name: 'DicloMR, Neurobin, OMez, Dexa',               amount: 70  },
+  { name: 'Dr-Dressing, grocin BC, cpm, dexa',           amount: 120 },
+  { name: 'Nimupara, Famtab, Levocetriza, Amox260',      amount: 70  },
+  { name: 'Aceclopara, nuvit, famtab, dexa',             amount: 70  },
+  { name: 'inj Rantac, cyclpam, omez, metro, dexa',      amount: 140 },
+  { name: 'small cpm, depin, dexa',                      amount: 50  },
+  { name: 'Aceclopara, Neurobin, Famtab, dexa',          amount: 70  },
+  { name: 'cyclpam, pipajam, famtab, dexa',              amount: 70  },
+  { name: 'Nimupara, famtab, stemetil, neurobin',        amount: 70  },
+  { name: 'inj.cyna, diclopara, metro, famtab, cetriza', amount: 140 },
+  { name: 'inj.cyna, Ibupura, Avil, Amox260, Dexa',     amount: 140 },
+  { name: 'para cpm, depin, Amox, kid',                  amount: 50  },
+  { name: 'AcekindSP, BCCap, Amox260, Dexa',            amount: 70  },
+  { name: 'inj.dexa, Cetriza, ADCap, Amox260, Dexa',    amount: 140 },
+  { name: 'AT-Anticold, Demin, Dexa, Amox260',          amount: 70  },
+  { name: 'Para depin, Dexa, Amox, kid',                amount: 50  },
+];
+
+function randTreatment() {
+  return TREATMENTS[Math.floor(Math.random() * TREATMENTS.length)];
 }
-function clearAlerts() {
-  ['loginErr','loginOk','signupErr','signupOk'].forEach(id => {
-    const el = document.getElementById(id);
-    el.classList.remove('show');
-    el.textContent = '';
+
+// ── Load full state from DB ────────────────────────────────────────
+async function loadState(fileId = ACTIVE_FILE_ID) {
+  const cfgRes  = await pool.query('SELECT * FROM clinic_config LIMIT 1');
+  const cfg     = cfgRes.rows[0];
+  const fileRes = await pool.query('SELECT * FROM excel_files WHERE id = $1', [fileId]);
+  const activeFile = fileRes.rows[0];
+
+  const sheetsRes = await pool.query(
+    'SELECT * FROM sheets WHERE file_id = $1 ORDER BY position ASC',
+    [fileId]
+  );
+  const sheets = [];
+  for (const sh of sheetsRes.rows) {
+    const pRes = await pool.query(
+      'SELECT * FROM patients WHERE sheet_id = $1 ORDER BY position ASC',
+      [sh.id]
+    );
+    sheets.push({
+      id:       sh.id,
+      name:     sh.name,
+      patients: pRes.rows.map(p => ({
+        id:        p.id,
+        odip:      p.odip,
+        name:      p.name,
+        treatment: p.treatment,
+        amount:    p.amount
+      }))
+    });
+  }
+  return {
+    configured:  cfg.configured,
+    startOdip:   cfg.start_odip,
+    nextOdip:    cfg.next_odip,
+    activeFile: { id: activeFile.id, name: activeFile.name },
+    sheets
+  };
+}
+
+// ── Renumber all ODIPs from scratch ───────────────────────────────
+async function renumberOdips(startOdip, fileId = ACTIVE_FILE_ID) {
+  const sheetsRes = await pool.query('SELECT id FROM sheets ORDER BY position ASC');
+  let odip = startOdip;
+  for (const sh of sheetsRes.rows) {
+    const pRes = await pool.query(
+      'SELECT id FROM patients WHERE sheet_id = $1 ORDER BY position ASC',
+      [sh.id]
+    );
+    for (const p of pRes.rows) {
+      await pool.query('UPDATE patients SET odip = $1 WHERE id = $2', [odip, p.id]);
+      odip++;
+    }
+  }
+  await pool.query('UPDATE clinic_config SET next_odip = $1', [odip]);
+  return odip;
+}
+
+// ── Build Excel ────────────────────────────────────────────────────
+async function buildExcel(state) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Clinic Register';
+  for (const sheet of state.sheets) {
+    if (!sheet.patients.length) continue;
+    const ws = wb.addWorksheet(sheet.name);
+    ws.getColumn(1).width = 12;
+    ws.getColumn(2).width = 28;
+    ws.getColumn(3).width = 52;
+    ws.getColumn(4).width = 12;
+    const hRow = ws.getRow(1);
+    hRow.height = 22;
+    ['ODIP No.', 'Patient Name', 'Treatment Given', 'Amount'].forEach((h, i) => {
+      const c = hRow.getCell(i + 1);
+      c.value     = h;
+      c.font      = { bold: true, size: 13, name: 'Calibri' };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    sheet.patients.forEach(p => {
+      const row = ws.addRow([p.odip, p.name, p.treatment, p.amount]);
+      row.height = 18;
+      row.eachCell((cell, col) => {
+        cell.font      = { size: 11, name: 'Calibri' };
+        cell.alignment = {
+          vertical:   'middle',
+          horizontal: col === 1 || col === 4 ? 'center' : 'left'
+        };
+      });
+    });
+    const totalRowNum = sheet.patients.length + 2;
+    const totalVal    = sheet.patients.reduce((s, p) => s + p.amount, 0);
+    const tRow        = ws.getRow(totalRowNum);
+    tRow.height       = 22;
+    const lc          = tRow.getCell(3);
+    lc.value          = 'Total';
+    lc.font           = { bold: true, size: 14, name: 'Calibri' };
+    lc.alignment      = { horizontal: 'center', vertical: 'middle' };
+    const ac          = tRow.getCell(4);
+    ac.value          = totalVal;
+    ac.font           = { bold: true, size: 14, name: 'Calibri' };
+    ac.alignment      = { horizontal: 'right', vertical: 'middle' };
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+  }
+  return await wb.xlsx.writeBuffer();
+}
+
+// ── Middleware ─────────────────────────────────────────────────────
+app.use(express.json());
+app.use(session({
+  secret:            'clinic-secret-key',
+  resave:            false,
+  saveUninitialized: false,
+  cookie:            { secure: false, maxAge: 1000 * 60 * 60 * 24 }
+}));
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+  if (!req.session.userId) return res.redirect('/login.html');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+app.get('/login.html', (req, res) => {
+  if (req.session.userId) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+function auth(req, res, next) {
+  if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  AUTH ROUTES
+// ═══════════════════════════════════════════════════════════════════
+
+// ── POST /api/signup ───────────────────────────────────────────────
+app.post('/api/signup', async (req, res) => {
+  try {
+    const { username, password, fullName } = req.body;
+
+    // --- Validation ---
+    if (!username || username.length < 3) {
+      return res.status(400).json({ error: 'Username must be at least 3 characters.' });
+    }
+    if (!/^[a-z0-9_]+$/i.test(username)) {
+      return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores.' });
+    }
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+    if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one uppercase letter.' });
+    }
+    if (!/[0-9]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one number.' });
+    }
+
+    // --- Check duplicate username ---
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE LOWER(username) = LOWER($1)',
+      [username.trim()]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'Username already taken. Please choose another.' });
+    }
+
+    // --- Hash password & insert ---
+    const hashed = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'INSERT INTO users (username, password, full_name) VALUES ($1, $2, $3) RETURNING id, username, full_name',
+      [username.trim().toLowerCase(), hashed, (fullName || '').trim()]
+    );
+
+    const user = result.rows[0];
+    console.log(`  ✅  New user registered: ${user.username}`);
+
+    res.status(201).json({ ok: true, userId: user.id, username: user.username });
+
+  } catch(e) {
+    console.error('Signup error:', e);
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// ── POST /api/login ────────────────────────────────────────────────
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    const userRes = await pool.query(
+      'SELECT * FROM users WHERE LOWER(username) = LOWER($1)',
+      [username.trim()]
+    );
+    if (userRes.rows.length === 0) {
+      return res.status(401).json({ error: 'No account found with that username.' });
+    }
+
+    const user = userRes.rows[0];
+    const ok   = await bcrypt.compare(password, user.password);
+    if (!ok) {
+      return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+    }
+
+    req.session.userId   = user.id;
+    req.session.username = user.username;
+    res.json({ ok: true, username: user.username, fullName: user.full_name });
+
+  } catch(e) {
+    console.error('Login error:', e);
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
+// ── POST /api/logout ───────────────────────────────────────────────
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  APP ROUTES (all require auth)
+// ═══════════════════════════════════════════════════════════════════
+
+app.get('/api/state', auth, async (req, res) => {
+  try {
+    res.json(await loadState());
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/setup', auth, async (req, res) => {
+  const { startOdip } = req.body;
+  if (!startOdip || startOdip < 1) return res.status(400).json({ error: 'Invalid ODIP' });
+  try {
+    await pool.query(
+      'UPDATE clinic_config SET configured = true, start_odip = $1, next_odip = $1',
+      [startOdip]
+    );
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/session', auth, async (req, res) => {
+  try {
+    const posRes = await pool.query(
+      'SELECT COALESCE(MAX(position),0) as maxpos FROM sheets WHERE file_id=$1',
+      [ACTIVE_FILE_ID]
+    );
+    const position = parseInt(posRes.rows[0].maxpos) + 1;
+    const now  = new Date();
+    const name = now.getDate() + '-' + (now.getMonth()+1) + '-' + now.getFullYear();
+    const shRes = await pool.query(
+      'INSERT INTO sheets (file_id, name, position) VALUES ($1,$2,$3) RETURNING *',
+      [ACTIVE_FILE_ID, name, position]
+    );
+    res.json({ ok: true, sheetId: shRes.rows[0].id, sheetName: shRes.rows[0].name });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/odip/set', auth, async (req, res) => {
+  const { odip } = req.body;
+  if (!odip || odip < 1 || odip > 999999) return res.status(400).json({ error: 'Invalid ODIP number' });
+  try {
+    await pool.query('UPDATE clinic_config SET next_odip = $1, configured = true', [odip]);
+    res.json({ ok: true, nextOdip: odip });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/odip', auth, async (req, res) => {
+  try {
+    const cfgRes = await pool.query('SELECT next_odip, start_odip FROM clinic_config LIMIT 1');
+    const cfg = cfgRes.rows[0];
+    res.json({ nextOdip: cfg.next_odip, startOdip: cfg.start_odip });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/excel/new', auth, async (req, res) => {
+  try {
+    const now      = new Date();
+    const fileName = req.body.name ||
+      ('Excel File ' + now.getDate() + '-' + (now.getMonth()+1) + '-' + now.getFullYear());
+    const fileRes = await pool.query(
+      'INSERT INTO excel_files (name) VALUES ($1) RETURNING *',
+      [fileName]
+    );
+    ACTIVE_FILE_ID = fileRes.rows[0].id;
+    const shRes = await pool.query(
+      'INSERT INTO sheets (file_id, name, position) VALUES ($1,$2,$3) RETURNING *',
+      [ACTIVE_FILE_ID, 'Sheet 1', 1]
+    );
+    res.json({ ok: true, fileId: ACTIVE_FILE_ID, sheetId: shRes.rows[0].id, sheetName: shRes.rows[0].name });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/patient', auth, async (req, res) => {
+  const { name, sheetId } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+  try {
+    const shRes = await pool.query('SELECT * FROM sheets WHERE id = $1', [sheetId]);
+    const sheet = shRes.rows[0];
+    if (!sheet) return res.status(404).json({ error: 'Sheet not found' });
+
+    const cfgRes   = await pool.query('SELECT next_odip FROM clinic_config LIMIT 1');
+    const nextOdip = cfgRes.rows[0].next_odip;
+    const countRes = await pool.query('SELECT COUNT(*) FROM patients WHERE sheet_id = $1', [sheet.id]);
+    const position = parseInt(countRes.rows[0].count) + 1;
+
+    const t    = randTreatment();
+    const pRes = await pool.query(
+      'INSERT INTO patients (sheet_id, odip, name, treatment, amount, position) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [sheet.id, nextOdip, name.trim(), t.name, t.amount, position]
+    );
+    const patient = pRes.rows[0];
+    await pool.query('UPDATE clinic_config SET next_odip = next_odip + 1');
+
+    res.json({
+      patient: { id: patient.id, odip: patient.odip, name: patient.name, treatment: patient.treatment, amount: patient.amount },
+      nextOdip: nextOdip + 1
+    });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/patient/last', auth, async (req, res) => {
+  try {
+    const { sheetId } = req.body;
+    const shRes = await pool.query('SELECT * FROM sheets WHERE id = $1', [sheetId]);
+    const sheet = shRes.rows[0];
+    const pRes  = await pool.query(
+      'SELECT * FROM patients WHERE sheet_id=$1 ORDER BY position DESC LIMIT 1',
+      [sheet.id]
+    );
+    if (pRes.rows.length === 0) return res.status(400).json({ error: 'No patients to undo' });
+    const patient = pRes.rows[0];
+    await pool.query('DELETE FROM patients WHERE id=$1', [patient.id]);
+    await pool.query('UPDATE clinic_config SET next_odip = next_odip - 1');
+    const cfgRes = await pool.query('SELECT next_odip FROM clinic_config LIMIT 1');
+    res.json({ ok: true, removed: patient, nextOdip: cfgRes.rows[0].next_odip });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.patch('/api/sheet/:id/rename', auth, async (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name cannot be empty' });
+  try {
+    await pool.query('UPDATE sheets SET name=$1 WHERE id=$2', [name.trim(), req.params.id]);
+    res.json({ ok: true, name: name.trim() });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/sheet/:id', auth, async (req, res) => {
+  try {
+    const id       = parseInt(req.params.id);
+    const countRes = await pool.query('SELECT COUNT(*) FROM sheets WHERE file_id = $1', [ACTIVE_FILE_ID]);
+    if (parseInt(countRes.rows[0].count) <= 1) {
+      return res.status(400).json({ error: 'Cannot delete last sheet' });
+    }
+    await pool.query('DELETE FROM patients WHERE sheet_id = $1', [id]);
+    await pool.query('DELETE FROM sheets WHERE id = $1', [id]);
+    const cfg = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
+    if (cfg.rows.length > 0) await renumberOdips(cfg.rows[0].start_odip, ACTIVE_FILE_ID);
+    res.json({ ok: true });
+  } catch(e) {
+    console.log(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/patient/:id', auth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await pool.query('DELETE FROM patients WHERE id = $1', [id]);
+    const cfgRes = await pool.query('SELECT start_odip FROM clinic_config LIMIT 1');
+    await renumberOdips(cfgRes.rows[0].start_odip);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/sheet', auth, async (req, res) => {
+  try {
+    const countRes = await pool.query('SELECT COUNT(*) FROM sheets WHERE file_id=$1', [ACTIVE_FILE_ID]);
+    const num      = parseInt(countRes.rows[0].count) + 1;
+    const shRes    = await pool.query(
+      'INSERT INTO sheets (file_id, name, position) VALUES ($1,$2,$3) RETURNING *',
+      [ACTIVE_FILE_ID, 'Sheet ' + num, num]
+    );
+    res.json({ sheetName: shRes.rows[0].name, sheetId: shRes.rows[0].id });
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/files', auth, async (req, res) => {
+  try {
+    const filesRes = await pool.query('SELECT * FROM excel_files ORDER BY created_at DESC');
+    res.json(filesRes.rows);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/files/switch', auth, async (req, res) => {
+  try {
+    const { fileId } = req.body;
+    ACTIVE_FILE_ID   = fileId;
+    const state      = await loadState(fileId);
+    res.json({ ok: true, state });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/download', auth, async (req, res) => {
+  try {
+    const state  = await loadState(ACTIVE_FILE_ID);
+    const buffer = await buildExcel(state);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="patients.xlsx"');
+    res.send(buffer);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/files/:id', auth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await pool.query(`DELETE FROM patients WHERE sheet_id IN (SELECT id FROM sheets WHERE file_id = $1)`, [id]);
+    await pool.query('DELETE FROM sheets WHERE file_id = $1', [id]);
+    await pool.query('DELETE FROM excel_files WHERE id = $1', [id]);
+    if (ACTIVE_FILE_ID === id) {
+      const fileRes = await pool.query('SELECT id FROM excel_files ORDER BY id ASC LIMIT 1');
+      if (fileRes.rows.length > 0) ACTIVE_FILE_ID = fileRes.rows[0].id;
+    }
+    res.json({ ok: true });
+  } catch(e) {
+    console.log(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Start ──────────────────────────────────────────────────────────
+initDB().then(() => {
+  app.listen(PORT, () => {
+    console.log('');
+    console.log('  ✅  Clinic Register running!');
+    console.log('  👉  Open: http://localhost:' + PORT);
+    console.log('');
   });
-}
-function shake() {
-  const card = document.getElementById('authCard');
-  card.classList.remove('shake');
-  void card.offsetWidth;
-  card.classList.add('shake');
-  setTimeout(() => card.classList.remove('shake'), 400);
-}
-
-// ═══════════════════════════════════════════════════
-//  LOGIN
-// ═══════════════════════════════════════════════════
-document.getElementById('loginUsername').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+}).catch(err => {
+  console.error('DB init failed:', err);
+  process.exit(1);
 });
-document.getElementById('loginPassword').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doLogin();
-});
-
-async function doLogin() {
-  clearAlerts();
-  const username = document.getElementById('loginUsername').value.trim();
-  const password = document.getElementById('loginPassword').value;
-  const btn      = document.getElementById('loginBtn');
-
-  if (!username || !password) {
-    showAlert('loginErr', 'Please enter both username and password.');
-    shake(); return;
-  }
-
-  btn.disabled    = true;
-  btn.innerHTML   = '<span class="btn-spinner"></span>Signing in…';
-
-  try {
-    const res  = await fetch('/api/login', {
-      method:      'POST',
-      credentials: 'include',
-      headers:     { 'Content-Type': 'application/json' },
-      body:        JSON.stringify({ username, password })
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      showAlert('loginErr', data.error || 'Invalid credentials. Please try again.');
-      shake();
-      btn.disabled  = false;
-      btn.innerHTML = 'Sign In →';
-      return;
-    }
-    showAlert('loginOk', '✓ Signed in! Redirecting…');
-    setTimeout(() => { window.location.href = '/'; }, 700);
-
-  } catch(e) {
-    showAlert('loginErr', 'Cannot connect to server.');
-    shake();
-    btn.disabled  = false;
-    btn.innerHTML = 'Sign In →';
-  }
-}
-
-// ═══════════════════════════════════════════════════
-//  SIGN UP
-// ═══════════════════════════════════════════════════
-document.getElementById('signupConfirm').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doSignup();
-});
-
-async function doSignup() {
-  clearAlerts();
-  document.getElementById('signupWarn').classList.add('show');
-
-  const fullName = document.getElementById('signupName').value.trim();
-  const username = document.getElementById('signupUsername').value.trim();
-  const password = document.getElementById('signupPassword').value;
-  const confirm  = document.getElementById('signupConfirm').value;
-  const btn      = document.getElementById('signupBtn');
-
-  // Client-side validation
-  if (!fullName) {
-    showAlert('signupErr', 'Please enter your full name.');
-    shake(); return;
-  }
-  if (!username || username.length < 3) {
-    showAlert('signupErr', 'Username must be at least 3 characters.');
-    shake(); return;
-  }
-  if (!/^[a-z0-9_]+$/.test(username)) {
-    showAlert('signupErr', 'Username can only contain letters, numbers, and underscores.');
-    shake(); return;
-  }
-  if (password.length < 6) {
-    showAlert('signupErr', 'Password must be at least 6 characters.');
-    shake(); return;
-  }
-  if (!/[A-Z]/.test(password)) {
-    showAlert('signupErr', 'Password must contain at least one uppercase letter.');
-    shake(); return;
-  }
-  if (!/[0-9]/.test(password)) {
-    showAlert('signupErr', 'Password must contain at least one number.');
-    shake(); return;
-  }
-  if (password !== confirm) {
-    showAlert('signupErr', 'Passwords do not match.');
-    document.getElementById('signupConfirm').classList.add('error');
-    shake(); return;
-  }
-
-  btn.disabled    = true;
-  btn.innerHTML   = '<span class="btn-spinner"></span>Creating account…';
-
-  try {
-    const res  = await fetch('/api/signup', {
-      method:      'POST',
-      credentials: 'include',
-      headers:     { 'Content-Type': 'application/json' },
-      body:        JSON.stringify({ username, password, fullName })
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      showAlert('signupErr', data.error || 'Signup failed. Please try again.');
-      shake();
-      btn.disabled  = false;
-      btn.innerHTML = 'Create Account →';
-      return;
-    }
-
-    // Success — auto sign in
-    showAlert('signupOk', '✓ Account created! Signing you in…');
-    btn.innerHTML = '<span class="btn-spinner"></span>Signing in…';
-
-    // Auto-login after signup
-    const loginRes  = await fetch('/api/login', {
-      method:      'POST',
-      credentials: 'include',
-      headers:     { 'Content-Type': 'application/json' },
-      body:        JSON.stringify({ username, password })
-    });
-    if (loginRes.ok) {
-      setTimeout(() => { window.location.href = '/'; }, 700);
-    } else {
-      showAlert('signupOk', '✓ Account created! Please sign in.');
-      setTimeout(() => switchTab('login'), 1200);
-      btn.disabled  = false;
-      btn.innerHTML = 'Create Account →';
-    }
-
-  } catch(e) {
-    showAlert('signupErr', 'Cannot connect to server.');
-    shake();
-    btn.disabled  = false;
-    btn.innerHTML = 'Create Account →';
-  }
-}
-</script>
-</body>
-</html>
