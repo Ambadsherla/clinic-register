@@ -482,7 +482,7 @@ function showEl(id)  { document.getElementById(id).classList.add('visible'); }
 function hideEl(id)  { document.getElementById(id).classList.remove('visible'); }
 
 // ── Fetch with timeout ────────────────────────────────────────────
-async function fetchWithTimeout(url, opts = {}, ms = 10000) {
+async function fetchWithTimeout(url, opts = {}, ms = 30000) {
   const ctrl = new AbortController();
   const tid  = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -511,11 +511,15 @@ async function bootApp() {
   document.getElementById('loadingErr').classList.remove('show');
   document.getElementById('loadingRetry').classList.remove('show');
 
+  // Guard: if we're already on login page, do nothing
+  if (window.location.pathname.includes('login')) return;
+
   try {
-    const res = await fetchWithTimeout('/api/state', { credentials: 'include' }, 10000);
+    const res = await fetchWithTimeout('/api/state', { credentials: 'include' }, 30000);
 
     if (res.status === 401) {
-      window.location.href = '/login.html';
+      // Not logged in — go to login, but prevent redirect loops
+      window.location.replace('/login.html');
       return;
     }
     if (!res.ok) {
@@ -532,10 +536,11 @@ async function bootApp() {
       showStartupDialog();
     }
   } catch(e) {
-    const msg = e.name === 'AbortError'
-      ? 'Connection timed out. Is the server running?'
-      : 'Cannot reach server: ' + e.message + '\n\nCheck DATABASE_URL is set and the server is running.';
-    showLoadingError(msg);
+    if (e.name === 'AbortError') {
+      showLoadingError('Server is waking up (Render cold start). Please wait a moment and retry.');
+    } else {
+      showLoadingError('Cannot reach server: ' + e.message);
+    }
   }
 }
 
