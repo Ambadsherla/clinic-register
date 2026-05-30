@@ -505,20 +505,15 @@ function showLoadingError(msg) {
 
 // ── Boot ──────────────────────────────────────────────────────────
 async function bootApp() {
-  // Reset loading state in case of retry
   document.getElementById('loadingTxt').style.display  = '';
   document.querySelector('.spinner').style.display     = '';
   document.getElementById('loadingErr').classList.remove('show');
   document.getElementById('loadingRetry').classList.remove('show');
 
-  // Guard: if we're already on login page, do nothing
-  if (window.location.pathname.includes('login')) return;
-
   try {
     const res = await fetchWithTimeout('/api/state', { credentials: 'include' }, 30000);
 
     if (res.status === 401) {
-      // Not logged in — go to login, but prevent redirect loops
       window.location.replace('/login.html');
       return;
     }
@@ -536,11 +531,10 @@ async function bootApp() {
       showStartupDialog();
     }
   } catch(e) {
-    if (e.name === 'AbortError') {
-      showLoadingError('Server is waking up (Render cold start). Please wait a moment and retry.');
-    } else {
-      showLoadingError('Cannot reach server: ' + e.message);
-    }
+    const msg = e.name === 'AbortError'
+      ? 'Server is starting up (Render cold start can take ~30s). Please click Retry.'
+      : 'Cannot reach server: ' + e.message;
+    showLoadingError(msg);
   }
 }
 
