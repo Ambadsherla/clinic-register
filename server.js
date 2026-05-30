@@ -16,17 +16,15 @@ const pool = new Pool({
 
 // ── DB Init ────────────────────────────────────────────────────────
 async function initDB() {
-  // Users table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id       SERIAL PRIMARY KEY,
-      username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
+      id         SERIAL PRIMARY KEY,
+      username   TEXT UNIQUE NOT NULL,
+      password   TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
 
-  // Per-user ODIP config
   await pool.query(`
     CREATE TABLE IF NOT EXISTS clinic_config (
       id         SERIAL PRIMARY KEY,
@@ -38,7 +36,6 @@ async function initDB() {
     )
   `);
 
-  // Excel files — each belongs to a user
   await pool.query(`
     CREATE TABLE IF NOT EXISTS excel_files (
       id         SERIAL PRIMARY KEY,
@@ -48,7 +45,6 @@ async function initDB() {
     )
   `);
 
-  // Sheets — belong to a file
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sheets (
       id         SERIAL PRIMARY KEY,
@@ -60,7 +56,6 @@ async function initDB() {
     )
   `);
 
-  // Patients — belong to a sheet
   await pool.query(`
     CREATE TABLE IF NOT EXISTS patients (
       id         SERIAL PRIMARY KEY,
@@ -75,7 +70,7 @@ async function initDB() {
     )
   `);
 
-  // Add user_id columns if missing (migration safety)
+  // Migration safety — add columns if missing
   const migrations = [
     `ALTER TABLE clinic_config ADD COLUMN IF NOT EXISTS user_id INTEGER`,
     `ALTER TABLE excel_files   ADD COLUMN IF NOT EXISTS user_id INTEGER`,
@@ -89,45 +84,48 @@ async function initDB() {
   console.log('  ✅  Database ready');
 }
 
-// ── 17 Treatments ─────────────────────────────────────────────────
+// ── Treatments ─────────────────────────────────────────────────────
+// FIX: All entries now use lowercase `name` consistently (was `Name` for entries 25-33)
 const TREATMENTS = [
-  { name: 'PA-Para, Amox250, Famtab, Avil',              amount: 70  },
-  { name: 'DicloMR, Neurobin, OMez, Dexa',               amount: 70  },
-  { name: 'Dr-Dressing, grocin BC, cpm, dexa',           amount: 120 },
-  { name: 'Nimupara, Famtab, Levocetriza, Amox260',      amount: 70  },
-  { name: 'Aceclopara, nuvit, famtab, dexa',             amount: 70  },
-  { name: 'inj Rantac, Cyclpam, Omez, Metro, Dexa',      amount: 140 },
-  { name: 'Small, CPM, Depin, Dexa',                      amount: 50  },
-  { name: 'Aceclopara, Neurobin, Famtab, Dexa',          amount: 70  },
-  { name: 'Cyclpam, Pipajam, Famtab, Dexa',              amount: 70  },
-  { name: 'Nimupara, famtab, stemetil, neurobin',        amount: 70  },
-  { name: 'inj.cyna, diclopara, metro, famtab, cetriza', amount: 140 },
-  { name: 'inj.cyna, Ibupura, Avil, Amox260, Dexa',     amount: 140 },
-  { name: 'Para, CPM, Depin, Amox, kid',                  amount: 50  },
-  { name: 'AcekindSP, BC Cap, Amox260, Dexa',            amount: 70  },
-  { name: 'Inj.dexa, Cetriza, ADCap, Amox260, Dexa',    amount: 140 },
-  { name: 'AT-Anticold, Demin, Dexa, Amox260',          amount: 70  },
-  { name: 'Para, Depin, Dexa, Amox, kid',                 amount: 50  },
-  { name: 'Ibupura, Avil, Amox260, Dexa',     amount: 140 },
-  { name: 'Nimopara, Avil, Anticold, Dexa',               amount: 70  },
-  { name: 'Cuyclopam, Omez, Meetro, Dexa',                amount: 50  },
-  { name: 'Cyclpam, Omez, Famtab, Dexa',             amount: 70  },
-  { name: 'Para, Omez, Amox, Cetriza',            amount: 70  },
-  { name: 'Anticold, Ibu200, Amox, Dexa',             amount: 70  },
-  { name: 'Anticold, Nimo100, Amox, Dexa',            amount: 70  },
-  { Name: 'Levocitriza, AD cap, Amox, Famotab, Inj.Dexa', amount: 140 },
-  { Name: 'Diclopara, Metro, Demiz, Cetriza, Inj.cyna', amount: 140 },
-  { Name: 'Aceclopara, Nuvit, Omez, Dexa', amount: 70 },
-  { Name: 'Inj.Cyna, Aceclopara, Nuvit, Omez, Dexa', amount: 140 },
-  { Name: '300, Depin, Dexa' , amount: 50 },
-  { Name: 'Para, Depin, Dexa', amount: 50 },
-  { Name: 'Inj.Genta, Cyclopaam, Omez-D, Metrio, Dexa', amount: 140 },
-  { Name: 'Grocin, BC, CPM, Amoxin, Dexa', amount: 70 },
-  { Name: 'Para, Lipra, CPM, Sodium', amount: 50 },
-
+  { name: 'PA-Para, Amox250, Famtab, Avil',                      amount: 70  },
+  { name: 'DicloMR, Neurobin, OMez, Dexa',                       amount: 70  },
+  { name: 'Dr-Dressing, grocin BC, cpm, dexa',                   amount: 120 },
+  { name: 'Nimupara, Famtab, Levocetriza, Amox260',              amount: 70  },
+  { name: 'Aceclopara, nuvit, famtab, dexa',                     amount: 70  },
+  { name: 'inj Rantac, Cyclpam, Omez, Metro, Dexa',              amount: 140 },
+  { name: 'Small, CPM, Depin, Dexa',                              amount: 50  },
+  { name: 'Aceclopara, Neurobin, Famtab, Dexa',                  amount: 70  },
+  { name: 'Cyclpam, Pipajam, Famtab, Dexa',                      amount: 70  },
+  { name: 'Nimupara, famtab, stemetil, neurobin',                amount: 70  },
+  { name: 'inj.cyna, diclopara, metro, famtab, cetriza',         amount: 140 },
+  { name: 'inj.cyna, Ibupura, Avil, Amox260, Dexa',             amount: 140 },
+  { name: 'Para, CPM, Depin, Amox, kid',                          amount: 50  },
+  { name: 'AcekindSP, BC Cap, Amox260, Dexa',                    amount: 70  },
+  { name: 'Inj.dexa, Cetriza, ADCap, Amox260, Dexa',            amount: 140 },
+  { name: 'AT-Anticold, Demin, Dexa, Amox260',                  amount: 70  },
+  { name: 'Para, Depin, Dexa, Amox, kid',                         amount: 50  },
+  { name: 'Ibupura, Avil, Amox260, Dexa',                        amount: 140 },
+  { name: 'Nimopara, Avil, Anticold, Dexa',                       amount: 70  },
+  { name: 'Cuyclopam, Omez, Meetro, Dexa',                        amount: 50  },
+  { name: 'Cyclpam, Omez, Famtab, Dexa',                         amount: 70  },
+  { name: 'Para, Omez, Amox, Cetriza',                           amount: 70  },
+  { name: 'Anticold, Ibu200, Amox, Dexa',                        amount: 70  },
+  { name: 'Anticold, Nimo100, Amox, Dexa',                       amount: 70  },
+  { name: 'Levocitriza, AD cap, Amox, Famotab, Inj.Dexa',        amount: 140 },
+  { name: 'Diclopara, Metro, Demiz, Cetriza, Inj.cyna',          amount: 140 },
+  { name: 'Aceclopara, Nuvit, Omez, Dexa',                       amount: 70  },
+  { name: 'Inj.Cyna, Aceclopara, Nuvit, Omez, Dexa',            amount: 140 },
+  { name: '300, Depin, Dexa',                                     amount: 50  },
+  { name: 'Para, Depin, Dexa',                                    amount: 50  },
+  { name: 'Inj.Genta, Cyclopaam, Omez-D, Metrio, Dexa',         amount: 140 },
+  { name: 'Grocin, BC, CPM, Amoxin, Dexa',                       amount: 70  },
+  { name: 'Para, Lipra, CPM, Sodium',                             amount: 50  },
 ];
+
 function randTreatment() {
-  return TREATMENTS[Math.floor(Math.random() * TREATMENTS.length)];
+  const t = TREATMENTS[Math.floor(Math.random() * TREATMENTS.length)];
+  // FIX: Guard against any future entry with undefined name
+  return { name: t.name || 'General Treatment', amount: t.amount || 70 };
 }
 
 // ── Get active file for user (most recent) ────────────────────────
@@ -142,14 +140,12 @@ async function getActiveFileId(userId) {
 
 // ── Load full state from DB ────────────────────────────────────────
 async function loadState(userId, fileId = null) {
-  // Config
   const cfgRes = await pool.query(
     'SELECT * FROM clinic_config WHERE user_id = $1 LIMIT 1',
     [userId]
   );
   const cfg = cfgRes.rows[0];
 
-  // Active file
   let fileQuery, fileValues;
   if (fileId) {
     fileQuery  = 'SELECT * FROM excel_files WHERE id = $1 AND user_id = $2';
@@ -158,11 +154,20 @@ async function loadState(userId, fileId = null) {
     fileQuery  = 'SELECT * FROM excel_files WHERE user_id = $1 ORDER BY id DESC LIMIT 1';
     fileValues = [userId];
   }
-  const fileRes  = await pool.query(fileQuery, fileValues);
+  const fileRes   = await pool.query(fileQuery, fileValues);
   const activeFile = fileRes.rows[0];
-  if (!activeFile) throw new Error('No file found');
 
-  // Sheets for this file
+  // FIX: Return a safe empty state instead of throwing when no file exists
+  if (!activeFile) {
+    return {
+      configured: cfg ? cfg.configured : false,
+      startOdip:  cfg ? cfg.start_odip : 1,
+      nextOdip:   cfg ? cfg.next_odip  : 1,
+      activeFile: null,
+      sheets:     []
+    };
+  }
+
   const sheetsRes = await pool.query(
     'SELECT * FROM sheets WHERE file_id = $1 AND user_id = $2 ORDER BY position ASC',
     [activeFile.id, userId]
@@ -204,7 +209,6 @@ async function renumberOdips(userId) {
   );
   const startOdip = cfgRes.rows[0] ? cfgRes.rows[0].start_odip : 1;
 
-  // Get all sheets for user, across all files, ordered by file id then position
   const sheetsRes = await pool.query(
     'SELECT id FROM sheets WHERE user_id = $1 ORDER BY file_id ASC, position ASC',
     [userId]
@@ -284,7 +288,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'clinic-secret-key-2024',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 * 7 } // 7 days
+  cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -308,11 +312,11 @@ function auth(req, res, next) {
 //  AUTH ROUTES
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/signup — create account + first excel file + sheet + config
+// POST /api/signup
 app.post('/api/signup', async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !username.trim())   return res.status(400).json({ error: 'Username is required.' });
+    if (!username || !username.trim())    return res.status(400).json({ error: 'Username is required.' });
     if (!password || password.length < 1) return res.status(400).json({ error: 'Password is required.' });
 
     const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username.trim()]);
@@ -325,13 +329,11 @@ app.post('/api/signup', async (req, res) => {
     );
     const user = userRes.rows[0];
 
-    // Create ODIP config for this user
     await pool.query(
       'INSERT INTO clinic_config (user_id, configured, start_odip, next_odip) VALUES ($1, true, 1, 1)',
       [user.id]
     );
 
-    // Create first Excel file
     const now      = new Date();
     const fileName = 'Excel File ' + now.getDate() + '-' + (now.getMonth()+1) + '-' + now.getFullYear();
     const fileRes  = await pool.query(
@@ -339,7 +341,6 @@ app.post('/api/signup', async (req, res) => {
       [user.id, fileName]
     );
 
-    // Create first sheet
     await pool.query(
       'INSERT INTO sheets (file_id, user_id, name, position) VALUES ($1, $2, $3, $4)',
       [fileRes.rows[0].id, user.id, 'Sheet 1', 1]
@@ -381,7 +382,6 @@ app.post('/api/logout', (req, res) => {
 //  STATE
 // ═══════════════════════════════════════════════════════════════════
 
-// GET /api/state — load full state for logged-in user
 app.get('/api/state', auth, async (req, res) => {
   try {
     res.json(await loadState(req.session.userId));
@@ -392,13 +392,12 @@ app.get('/api/state', auth, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-//  SESSION (auto new sheet on login)
+//  SESSION
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/session — create new dated sheet in active file
 app.post('/api/session', auth, async (req, res) => {
   try {
-    const userId      = req.session.userId;
+    const userId       = req.session.userId;
     const activeFileId = await getActiveFileId(userId);
 
     const posRes  = await pool.query(
@@ -426,7 +425,6 @@ app.post('/api/session', auth, async (req, res) => {
 //  ODIP
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/odip/set
 app.post('/api/odip/set', auth, async (req, res) => {
   const { odip } = req.body;
   if (!odip || odip < 1 || odip > 999999) return res.status(400).json({ error: 'Invalid ODIP number' });
@@ -441,7 +439,6 @@ app.post('/api/odip/set', auth, async (req, res) => {
   }
 });
 
-// POST /api/setup (legacy)
 app.post('/api/setup', auth, async (req, res) => {
   const { startOdip } = req.body;
   if (!startOdip || startOdip < 1) return res.status(400).json({ error: 'Invalid ODIP' });
@@ -460,7 +457,6 @@ app.post('/api/setup', auth, async (req, res) => {
 //  EXCEL FILES
 // ═══════════════════════════════════════════════════════════════════
 
-// GET /api/files — list user's excel files
 app.get('/api/files', auth, async (req, res) => {
   try {
     const filesRes = await pool.query(
@@ -473,7 +469,6 @@ app.get('/api/files', auth, async (req, res) => {
   }
 });
 
-// POST /api/excel/new — create new Excel file with Sheet 1
 app.post('/api/excel/new', auth, async (req, res) => {
   try {
     const userId = req.session.userId;
@@ -497,11 +492,9 @@ app.post('/api/excel/new', auth, async (req, res) => {
   }
 });
 
-// POST /api/files/switch — switch active file
 app.post('/api/files/switch', auth, async (req, res) => {
   try {
     const { fileId } = req.body;
-    // Verify ownership
     const check = await pool.query(
       'SELECT id FROM excel_files WHERE id = $1 AND user_id = $2',
       [fileId, req.session.userId]
@@ -515,19 +508,26 @@ app.post('/api/files/switch', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/files/:id
 app.delete('/api/files/:id', auth, async (req, res) => {
   try {
     const id     = parseInt(req.params.id);
     const userId = req.session.userId;
 
-    // Verify ownership
     const check = await pool.query('SELECT id FROM excel_files WHERE id = $1 AND user_id = $2', [id, userId]);
     if (!check.rows.length) return res.status(403).json({ error: 'Access denied' });
+
+    // FIX: Prevent deleting the last file — user must always have at least one
+    const countRes = await pool.query('SELECT COUNT(*) FROM excel_files WHERE user_id = $1', [userId]);
+    if (parseInt(countRes.rows[0].count) <= 1) {
+      return res.status(400).json({ error: 'Cannot delete the last Excel file.' });
+    }
 
     await pool.query(`DELETE FROM patients WHERE sheet_id IN (SELECT id FROM sheets WHERE file_id = $1)`, [id]);
     await pool.query('DELETE FROM sheets WHERE file_id = $1', [id]);
     await pool.query('DELETE FROM excel_files WHERE id = $1', [id]);
+
+    // FIX: Renumber ODIPs after file deletion so they stay consistent
+    await renumberOdips(userId);
 
     res.json({ ok: true });
   } catch(e) {
@@ -540,7 +540,6 @@ app.delete('/api/files/:id', auth, async (req, res) => {
 //  SHEETS
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/sheet — create new sheet in active file
 app.post('/api/sheet', auth, async (req, res) => {
   try {
     const userId       = req.session.userId;
@@ -564,12 +563,10 @@ app.post('/api/sheet', auth, async (req, res) => {
   }
 });
 
-// PATCH /api/sheet/:id/rename
 app.patch('/api/sheet/:id/rename', auth, async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name cannot be empty' });
   try {
-    // Verify ownership
     const check = await pool.query(
       'SELECT id FROM sheets WHERE id = $1 AND user_id = $2',
       [req.params.id, req.session.userId]
@@ -583,17 +580,14 @@ app.patch('/api/sheet/:id/rename', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/sheet/:id
 app.delete('/api/sheet/:id', auth, async (req, res) => {
   try {
     const id     = parseInt(req.params.id);
     const userId = req.session.userId;
 
-    // Verify ownership
     const check = await pool.query('SELECT id FROM sheets WHERE id = $1 AND user_id = $2', [id, userId]);
     if (!check.rows.length) return res.status(403).json({ error: 'Access denied' });
 
-    // Must keep at least 1 sheet
     const countRes = await pool.query('SELECT COUNT(*) FROM sheets WHERE user_id = $1', [userId]);
     if (parseInt(countRes.rows[0].count) <= 1) return res.status(400).json({ error: 'Cannot delete last sheet' });
 
@@ -612,7 +606,6 @@ app.delete('/api/sheet/:id', auth, async (req, res) => {
 //  PATIENTS
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/patient
 app.post('/api/patient', auth, async (req, res) => {
   const { name, sheetId } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
@@ -620,14 +613,13 @@ app.post('/api/patient', auth, async (req, res) => {
   try {
     const userId = req.session.userId;
 
-    // Verify sheet belongs to user
     const shRes = await pool.query(
       'SELECT * FROM sheets WHERE id = $1 AND user_id = $2',
       [sheetId, userId]
     );
     if (!shRes.rows.length) return res.status(404).json({ error: 'Sheet not found' });
 
-    const cfgRes  = await pool.query('SELECT next_odip FROM clinic_config WHERE user_id = $1', [userId]);
+    const cfgRes   = await pool.query('SELECT next_odip FROM clinic_config WHERE user_id = $1', [userId]);
     const nextOdip = cfgRes.rows[0].next_odip;
 
     const countRes = await pool.query('SELECT COUNT(*) FROM patients WHERE sheet_id = $1', [sheetId]);
@@ -643,7 +635,13 @@ app.post('/api/patient', auth, async (req, res) => {
     await pool.query('UPDATE clinic_config SET next_odip = next_odip + 1 WHERE user_id = $1', [userId]);
 
     res.json({
-      patient:  { id: pRes.rows[0].id, odip: pRes.rows[0].odip, name: pRes.rows[0].name, treatment: pRes.rows[0].treatment, amount: pRes.rows[0].amount },
+      patient:  {
+        id:        pRes.rows[0].id,
+        odip:      pRes.rows[0].odip,
+        name:      pRes.rows[0].name,
+        treatment: pRes.rows[0].treatment,
+        amount:    pRes.rows[0].amount
+      },
       nextOdip: nextOdip + 1
     });
   } catch(e) {
@@ -653,12 +651,12 @@ app.post('/api/patient', auth, async (req, res) => {
 });
 
 // DELETE /api/patient/last (undo)
+// FIX: Now calls renumberOdips() for full consistency instead of blindly decrementing
 app.delete('/api/patient/last', auth, async (req, res) => {
   try {
     const { sheetId } = req.body;
     const userId      = req.session.userId;
 
-    // Verify ownership
     const shCheck = await pool.query('SELECT id FROM sheets WHERE id = $1 AND user_id = $2', [sheetId, userId]);
     if (!shCheck.rows.length) return res.status(403).json({ error: 'Access denied' });
 
@@ -670,10 +668,11 @@ app.delete('/api/patient/last', auth, async (req, res) => {
 
     const patient = pRes.rows[0];
     await pool.query('DELETE FROM patients WHERE id = $1', [patient.id]);
-    await pool.query('UPDATE clinic_config SET next_odip = next_odip - 1 WHERE user_id = $1', [userId]);
 
-    const cfgRes = await pool.query('SELECT next_odip FROM clinic_config WHERE user_id = $1', [userId]);
-    res.json({ ok: true, removed: patient, nextOdip: cfgRes.rows[0].next_odip });
+    // FIX: Use renumberOdips for accurate next_odip instead of simple decrement
+    const newNextOdip = await renumberOdips(userId);
+
+    res.json({ ok: true, removed: patient, nextOdip: newNextOdip });
   } catch(e) {
     console.error(e);
     res.status(500).json({ error: e.message });
@@ -686,7 +685,6 @@ app.delete('/api/patient/:id', auth, async (req, res) => {
     const id     = parseInt(req.params.id);
     const userId = req.session.userId;
 
-    // Verify ownership
     const check = await pool.query('SELECT id FROM patients WHERE id = $1 AND user_id = $2', [id, userId]);
     if (!check.rows.length) return res.status(403).json({ error: 'Access denied' });
 
@@ -705,15 +703,18 @@ app.delete('/api/patient/:id', auth, async (req, res) => {
 
 app.get('/api/download', auth, async (req, res) => {
   try {
-const fileId = req.query.fileId;
+    const fileId = req.query.fileId;
+    const state  = await loadState(req.session.userId, fileId);
 
-const state = await loadState(
-  req.session.userId,
-  fileId
-);
-    const buffer = await buildExcel(state);
+    // FIX: Guard against no file
+    if (!state.activeFile) {
+      return res.status(404).json({ error: 'No file to download' });
+    }
+
+    const buffer   = await buildExcel(state);
+    const safeName = state.activeFile.name.replace(/[^a-zA-Z0-9 \-_.]/g, '_');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${state.activeFile.name}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.xlsx"`);
     res.send(buffer);
   } catch(e) {
     res.status(500).json({ error: e.message });
