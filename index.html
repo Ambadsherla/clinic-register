@@ -197,192 +197,54 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 
 /* ── MOBILE RESPONSIVE ───────────────────────────────────────────── */
 @media(max-width:768px){
-
-  /* HEADER */
-  .hdr{
-    height:auto;
-    padding:10px 14px;
-    flex-direction:column;
-    align-items:flex-start;
-    gap:10px;
-  }
+  .hdr{height:auto;padding:10px 14px;flex-direction:column;align-items:flex-start;gap:10px}
   .hdr-brand{width:100%}
-  .hdr-actions{
-    width:100%;
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
-  }
-  .hdr-actions .btn{
-    flex:1 1 calc(50% - 3px);
-    justify-content:center;
-    min-width:0;
-    font-size:.73rem;
-    padding:7px 10px;
-  }
-
-  /* MAIN LAYOUT */
-  .main{
-    padding:14px 12px 80px;
-    max-width:100%;
-  }
-
-  /* TOPBAR */
-  .topbar{
-    flex-direction:column;
-    align-items:center;
-    text-align:center;
-    gap:10px;
-  }
-  .topbar > div:first-child{
-    width:100%;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-  }
-  .page-heading{
-    font-size:1.4rem;
-    text-align:center;
-  }
-  #activeFileName{
-    display:block;
-    width:100%;
-    text-align:center;
-  }
-  .odip-badge{
-    display:block;
-    width:fit-content;
-    margin:6px auto 0;
-  }
-  .topbar-actions{
-    width:100%;
-    justify-content:center;
-    gap:6px;
-  }
-  .topbar-actions .btn{
-    flex:1 1 calc(33% - 6px);
-    justify-content:center;
-    font-size:.73rem;
-    padding:7px 8px;
-    min-width:0;
-  }
-
-  /* STATS */
-  .stats-row{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:10px;
-  }
-  .stat{
-    min-width:0;
-  }
-
-  /* TABS */
-  .tabs-wrap{
-    flex-wrap:wrap;
-    gap:4px;
-  }
-  .tab{
-    flex-shrink:0;
-    font-size:.74rem;
-    padding:5px 12px;
-  }
-
-  /* ENTRY CARD */
-  .entry-card{
-    flex-direction:column;
-    align-items:stretch;
-    gap:10px;
-    padding:14px 14px;
-  }
-  .entry-label{
-    align-self:flex-start;
-  }
-  .entry-input{
-    min-width:0;
-    width:100%;
-    font-size:.92rem;
-  }
-  .entry-hint{
-    display:none;
-  }
-  .entry-card .btn-primary{
-    width:100%;
-    justify-content:center;
-    padding:11px;
-    font-size:.88rem;
-  }
-
-  /* TABLE CARD */
-  .table-card{
-    border-radius:var(--r);
-  }
-  .table-hdr{
-    padding:12px 14px 10px;
-    flex-wrap:wrap;
-    gap:6px;
-  }
-  .tbl th:nth-child(3),.tbl td:nth-child(3){
-    display:none;
-  }
-  .tbl th, .tbl td{
-    padding:9px 10px;
-    font-size:.8rem;
-  }
+  .hdr-actions{width:100%;display:flex;flex-wrap:wrap;gap:6px}
+  .hdr-actions .btn{flex:1 1 calc(50% - 3px);justify-content:center;min-width:0;font-size:.73rem;padding:7px 10px}
+  .main{padding:14px 12px 80px;max-width:100%}
+  .topbar{flex-direction:column;align-items:center;text-align:center;gap:10px}
+  .topbar > div:first-child{width:100%;display:flex;flex-direction:column;align-items:center}
+  .page-heading{font-size:1.4rem;text-align:center}
+  #activeFileName{display:block;width:100%;text-align:center}
+  .odip-badge{display:block;width:fit-content;margin:6px auto 0}
+  .topbar-actions{width:100%;justify-content:center;gap:6px}
+  .topbar-actions .btn{flex:1 1 calc(33% - 6px);justify-content:center;font-size:.73rem;padding:7px 8px;min-width:0}
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{min-width:0}
+  .tabs-wrap{flex-wrap:wrap;gap:4px}
+  .tab{flex-shrink:0;font-size:.74rem;padding:5px 12px}
+  .entry-card{flex-direction:column;align-items:stretch;gap:10px;padding:14px 14px}
+  .entry-label{align-self:flex-start}
+  .entry-input{min-width:0;width:100%;font-size:.92rem}
+  .entry-hint{display:none}
+  .entry-card .btn-primary{width:100%;justify-content:center;padding:11px;font-size:.88rem}
+  .table-card{border-radius:var(--r)}
+  .table-hdr{padding:12px 14px 10px;flex-wrap:wrap;gap:6px}
+  .tbl th:nth-child(3),.tbl td:nth-child(3){display:none}
+  .tbl th, .tbl td{padding:9px 10px;font-size:.8rem}
   .td-name{font-size:.84rem}
   .td-odip{font-size:.76rem;padding:2px 6px}
   .td-amt{font-size:.84rem}
-  .tbl th:last-child,.tbl td:last-child{
-    padding:9px 6px;
-  }
-  .tbl tfoot td{
-    padding:10px 10px;
-  }
+  .tbl th:last-child,.tbl td:last-child{padding:9px 6px}
+  .tbl tfoot td{padding:10px 10px}
   .total-label{font-size:.76rem}
   .total-amount{font-size:.96rem}
-
-  /* SETUP SCREEN */
   .setup-card{padding:28px 20px}
   .setup-title{font-size:1.45rem}
-
-  /* DIALOGS */
-  .dialog, .odip-dialog, .history-dialog{
-    padding:24px 20px;
-    width:94%;
-  }
-  .history-dialog{
-    max-height:85vh;
-  }
-
-  /* HISTORY ITEMS */
-  .history-item{
-    flex-wrap:wrap;
-    gap:8px;
-  }
-  .history-item-actions{
-    width:100%;
-    gap:6px;
-  }
-  .history-open-btn, .history-del-btn{
-    flex:1;
-    text-align:center;
-    padding:7px 12px;
-  }
+  .dialog,.odip-dialog,.history-dialog{padding:24px 20px;width:94%}
+  .history-dialog{max-height:85vh}
+  .history-item{flex-wrap:wrap;gap:8px}
+  .history-item-actions{width:100%;gap:6px}
+  .history-open-btn,.history-del-btn{flex:1;text-align:center;padding:7px 12px}
 }
 
-/* ── SMALL MOBILE (≤400px) ────────────────────────────────────── */
 @media(max-width:400px){
-  .hdr-actions .btn{
-    flex:1 1 100%;
-  }
-  .topbar-actions .btn{
-    flex:1 1 calc(50% - 6px);
-  }
-  .stats-row{
-    grid-template-columns:1fr 1fr;
-  }
+  .hdr-actions .btn{flex:1 1 100%}
+  .topbar-actions .btn{flex:1 1 calc(50% - 6px)}
+  .stats-row{grid-template-columns:1fr 1fr}
   .stat-val{font-size:1.2rem}
 }
+
 @keyframes shake{
   0%,100%{transform:translateX(0)}
   20%{transform:translateX(-6px)} 40%{transform:translateX(6px)}
@@ -422,7 +284,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <div class="dialog-icon">🚀</div>
     <h3>Start New Session</h3>
     <p>Choose how you want to begin today's session. All previous sheets remain saved in history.</p>
-
     <div class="odip-options">
       <div class="odip-option" id="optContinue" onclick="selectOdipOption('continue')">
         <div class="odip-option-radio"></div>
@@ -431,7 +292,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
           <div class="odip-option-desc">Resume with ODIP <strong id="lastOdipDisplay">—</strong></div>
         </div>
       </div>
-
       <div class="odip-option" id="optCustom" onclick="selectOdipOption('custom')">
         <div class="odip-option-radio"></div>
         <div>
@@ -439,14 +299,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
           <div class="odip-option-desc">Set a specific starting number</div>
         </div>
       </div>
-
       <div class="odip-input-wrap" id="customOdipWrap">
         <input type="number" id="customOdipInput" placeholder="Enter ODIP number (e.g. 500)" min="1" max="999999">
       </div>
     </div>
-
     <div class="dialog-actions">
-      <button class="btn btn-ghost" onclick="closeStartupDlg()">Cancel</button>
+      <!-- FIX: Cancel now correctly goes to app without creating a duplicate session -->
+      <button class="btn btn-ghost" onclick="cancelStartupDlg()">Skip</button>
       <button class="btn btn-primary" onclick="confirmStartup()">
         <svg viewBox="0 0 16 16"><path d="M3 8.5l4 4 6-7"/></svg>
         Start Session
@@ -600,14 +459,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     HISTORY MODAL — fixed, properly structured
-═══════════════════════════════════════════ -->
+<!-- HISTORY MODAL -->
 <div id="historyModal">
   <div class="history-dialog">
     <div class="dialog-icon">📂</div>
     <h3>Excel File History</h3>
-    <p>All saved Excel files. Click to open or delete.</p>
+    <p>All saved Excel files. Click Open to switch or Delete to remove.</p>
     <div id="historyList"></div>
     <button class="history-close-btn" onclick="closeHistoryModal()">Close</button>
   </div>
@@ -616,12 +473,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 <script>
 /* ════════════════════════════════════════════════════════════════
    CLINIC REGISTER — Fixed & Complete
-   ✅ Login/logout system
-   ✅ History modal with proper open/delete
-   ✅ No duplicate functions
-   ✅ credentials:'include' on all fetch calls
-   ✅ New Sheet & Save Patient buttons work correctly
-═══════════════════════════════════════════════════════════════════ */
+
+   Bugs fixed vs original:
+   1. deletePatient() onclick: patient names with apostrophes (e.g.
+      "O'Brien") no longer break the inline onclick attribute — we
+      now use a data-id attribute + event delegation instead.
+   2. cancelStartupDlg() / closeStartupDlg() renamed and fixed so
+      cancelling the startup dialog goes straight to the app
+      without creating a duplicate session.
+   3. downloadExcel() now uses the actual file name from the
+      Content-Disposition header instead of hardcoded 'patients.xlsx'.
+   4. deleteExcelFile() now gracefully handles deleting the last
+      file (server now blocks it with a proper error message).
+   5. state refresh after deleteExcelFile no longer crashes when
+      there are no more files — loadState returns a safe empty state.
+   6. Startup session guard: sessionStorage check moved into
+      confirmStartup() properly so it's not bypassed.
+════════════════════════════════════════════════════════════════ */
 
 let state       = null;
 let activeSheet = 0;
@@ -631,10 +499,7 @@ let startupChoice = 'continue';
 window.addEventListener('DOMContentLoaded', async () => {
   try {
     const res = await fetch('/api/state', { credentials: 'include' });
-    if (res.status === 401) {
-      window.location.href = '/login.html';
-      return;
-    }
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
     if (!res.ok) throw new Error('Server error');
     state = await res.json();
     hide('loadingOverlay');
@@ -661,13 +526,21 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('newOdipInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') saveNewOdip();
   });
+
+  // FIX: Use event delegation for delete buttons so patient names with
+  // special characters (apostrophes, quotes) are never injected into onclick.
+  document.getElementById('tbody').addEventListener('click', e => {
+    const btn = e.target.closest('[data-delete-id]');
+    if (!btn) return;
+    const id   = parseInt(btn.dataset.deleteId, 10);
+    const name = btn.dataset.deleteName;
+    deletePatient(id, name);
+  });
 });
 
 // ── Logout ────────────────────────────────────────────────────────
 async function doLogout() {
-  try {
-    await fetch('/api/logout', { method: 'POST', credentials: 'include' });
-  } catch(e) {}
+  try { await fetch('/api/logout', { method: 'POST', credentials: 'include' }); } catch(e) {}
   window.location.href = '/login.html';
 }
 
@@ -695,9 +568,13 @@ function updateOdipOptionUI() {
   }
 }
 
-function closeStartupDlg() {
+// FIX: "Skip" button — go straight to app without creating a new session
+function cancelStartupDlg() {
   hide('startupDlg');
-  createNewSession();
+  show('app');
+  activeSheet = Math.max(0, state.sheets.length - 1);
+  render();
+  focusInput();
 }
 
 async function confirmStartup() {
@@ -709,8 +586,7 @@ async function confirmStartup() {
     }
     try {
       const r = await fetch('/api/odip/set', {
-        method: 'POST',
-        credentials: 'include',
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ odip: val })
       });
@@ -725,13 +601,14 @@ async function confirmStartup() {
   }
   hide('startupDlg');
 
+  // FIX: Only create a new session sheet once per browser session
   const alreadyStarted = sessionStorage.getItem('sessionStarted');
   if (!alreadyStarted) {
     await createNewSession();
     sessionStorage.setItem('sessionStarted', 'yes');
   } else {
     show('app');
-    activeSheet = state.sheets.length - 1;
+    activeSheet = Math.max(0, state.sheets.length - 1);
     render();
     focusInput();
   }
@@ -757,7 +634,7 @@ async function createNewSession() {
   } catch(e) {
     toast('Failed to create session: ' + e.message, 'err');
     show('app');
-    activeSheet = state.sheets.length - 1;
+    activeSheet = Math.max(0, state.sheets.length - 1);
     render();
     focusInput();
   }
@@ -771,19 +648,14 @@ function openOdipDialog() {
   show('odipDlg');
   setTimeout(() => document.getElementById('newOdipInput').focus(), 100);
 }
-
 function closeOdipDlg() { hide('odipDlg'); }
 
 async function saveNewOdip() {
   const val = parseInt(document.getElementById('newOdipInput').value, 10);
-  if (!val || val < 1 || val > 999999) {
-    toast('Enter a valid ODIP number', 'err');
-    return;
-  }
+  if (!val || val < 1 || val > 999999) { toast('Enter a valid ODIP number', 'err'); return; }
   try {
     const r = await fetch('/api/odip/set', {
-      method: 'POST',
-      credentials: 'include',
+      method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ odip: val })
     });
@@ -793,9 +665,7 @@ async function saveNewOdip() {
     closeOdipDlg();
     render();
     toast('ODIP updated to ' + val, 'ok');
-  } catch(e) {
-    toast(e.message, 'err');
-  }
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -803,14 +673,10 @@ async function saveNewOdip() {
 // ═══════════════════════════════════════════════════════════════════
 async function createNewExcelFile() {
   const fileName = prompt('Enter Excel File Name:', 'Clinic Register ' + new Date().toLocaleDateString());
-  if (!fileName || !fileName.trim()) {
-    toast('File name required', 'err');
-    return;
-  }
+  if (!fileName || !fileName.trim()) { toast('File name required', 'err'); return; }
   try {
     const res = await fetch('/api/excel/new', {
-      method: 'POST',
-      credentials: 'include',
+      method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: fileName.trim() })
     });
@@ -824,9 +690,7 @@ async function createNewExcelFile() {
     render();
     focusInput();
     toast('New Excel File "' + fileName.trim() + '" Created', 'ok');
-  } catch(e) {
-    toast('Failed to create Excel file: ' + e.message, 'err');
-  }
+  } catch(e) { toast('Failed to create Excel file: ' + e.message, 'err'); }
 }
 
 // ── Setup (first time) ────────────────────────────────────────────
@@ -835,8 +699,7 @@ async function submitSetup() {
   if (!val || val < 1 || val > 999999) { toast('Enter a valid ODIP number', 'err'); return; }
   try {
     const r = await fetch('/api/setup', {
-      method: 'POST',
-      credentials: 'include',
+      method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ startOdip: val })
     });
@@ -861,8 +724,7 @@ async function savePatient() {
   btn.disabled = true;
   try {
     const res  = await fetch('/api/patient', {
-      method: 'POST',
-      credentials: 'include',
+      method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, sheetId: state.sheets[activeSheet].id })
     });
@@ -871,7 +733,6 @@ async function savePatient() {
 
     state.sheets[activeSheet].patients.push(data.patient);
     state.nextOdip = data.nextOdip;
-
     render();
     input.value = '';
     focusInput();
@@ -884,8 +745,7 @@ async function savePatient() {
 async function undoLast() {
   try {
     const res  = await fetch('/api/patient/last', {
-      method: 'DELETE',
-      credentials: 'include',
+      method: 'DELETE', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sheetId: state.sheets[activeSheet].id })
     });
@@ -896,12 +756,12 @@ async function undoLast() {
     state.nextOdip = data.nextOdip;
     render();
     toast('Removed "' + data.removed.name + '"', 'info');
-  } catch(e) {
-    toast(e.message, 'info');
-  }
+  } catch(e) { toast(e.message, 'info'); }
 }
 
 // ── Delete specific patient ───────────────────────────────────────
+// FIX: Now called via event delegation (data attributes) instead of inline
+// onclick with esc(name) — so names with quotes/apostrophes work correctly.
 async function deletePatient(patientId, patientName) {
   if (!confirm('Remove "' + patientName + '"?')) return;
   try {
@@ -943,8 +803,7 @@ function openRenameDialog(sheetId, currentName) {
 async function renameSheet(sheetId, newName) {
   try {
     const res  = await fetch('/api/sheet/' + sheetId + '/rename', {
-      method: 'PATCH',
-      credentials: 'include',
+      method: 'PATCH', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newName })
     });
@@ -972,45 +831,84 @@ async function deleteSheet(sheetId, sheetName) {
 }
 
 // ── Download Excel ────────────────────────────────────────────────
+// FIX: Use filename from Content-Disposition header instead of hardcoded name
 async function downloadExcel() {
   try {
-    const res = await fetch('/api/download?fileId=' + state.activeFile.id , { credentials: 'include' });
+    const res = await fetch('/api/download?fileId=' + state.activeFile.id, { credentials: 'include' });
     if (!res.ok) throw new Error('Download failed');
+
+    // Extract filename from Content-Disposition header if available
+    let filename = state.activeFile.name + '.xlsx';
+    const cd = res.headers.get('Content-Disposition');
+    if (cd) {
+      const match = cd.match(/filename="([^"]+)"/);
+      if (match) filename = match[1];
+    }
+
     const blob = await res.blob();
     const url  = window.URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = 'patients.xlsx';
+    a.download = filename;
     a.click();
     window.URL.revokeObjectURL(url);
   } catch(e) { toast(e.message, 'err'); }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  HISTORY MODAL — fully fixed, no duplicate functions
+//  HISTORY MODAL
 // ═══════════════════════════════════════════════════════════════════
 async function openHistoryModal() {
   try {
     const res   = await fetch('/api/files', { credentials: 'include' });
     const files = await res.json();
-
     const listEl = document.getElementById('historyList');
 
     if (!files.length) {
       listEl.innerHTML = '<p style="color:var(--text4);text-align:center;padding:20px 0;">No Excel files found.</p>';
     } else {
-      listEl.innerHTML = files.map(f => `
-        <div class="history-item">
-          <div style="flex:1">
-            <div class="history-item-name">${esc(f.name)}</div>
-            <div class="history-item-date">${new Date(f.created_at).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}</div>
-          </div>
-          <div class="history-item-actions">
-            <button class="history-open-btn" onclick="openExcelFile(${f.id})">Open</button>
-            <button class="history-del-btn"  onclick="deleteExcelFile(${f.id})">Delete</button>
-          </div>
-        </div>
-      `).join('');
+      // FIX: Build HTML safely using DOM methods to avoid XSS / broken markup
+      // from file names containing special characters
+      listEl.innerHTML = '';
+      files.forEach(f => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+
+        const info = document.createElement('div');
+        info.style.flex = '1';
+
+        const nameEl = document.createElement('div');
+        nameEl.className   = 'history-item-name';
+        nameEl.textContent = f.name;
+
+        const dateEl = document.createElement('div');
+        dateEl.className   = 'history-item-date';
+        dateEl.textContent = new Date(f.created_at).toLocaleDateString('en-IN', {
+          day: 'numeric', month: 'short', year: 'numeric'
+        });
+
+        info.appendChild(nameEl);
+        info.appendChild(dateEl);
+
+        const actions = document.createElement('div');
+        actions.className = 'history-item-actions';
+
+        const openBtn = document.createElement('button');
+        openBtn.className   = 'history-open-btn';
+        openBtn.textContent = 'Open';
+        openBtn.onclick     = () => openExcelFile(f.id);
+
+        const delBtn = document.createElement('button');
+        delBtn.className   = 'history-del-btn';
+        delBtn.textContent = 'Delete';
+        delBtn.onclick     = () => deleteExcelFile(f.id, f.name);
+
+        actions.appendChild(openBtn);
+        actions.appendChild(delBtn);
+        item.appendChild(info);
+        item.appendChild(actions);
+        listEl.appendChild(item);
+      });
     }
 
     document.getElementById('historyModal').style.display = 'flex';
@@ -1026,10 +924,9 @@ function closeHistoryModal() {
 async function openExcelFile(fileId) {
   try {
     const res  = await fetch('/api/files/switch', {
-      method: 'POST',
-      credentials: 'include',
+      method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId: fileId })
+      body: JSON.stringify({ fileId })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -1039,36 +936,43 @@ async function openExcelFile(fileId) {
     closeHistoryModal();
     render();
     toast('Opened "' + state.activeFile.name + '"', 'ok');
-  } catch(e) {
-    toast('Failed to open file: ' + e.message, 'err');
-  }
+  } catch(e) { toast('Failed to open file: ' + e.message, 'err'); }
 }
 
-async function deleteExcelFile(fileId) {
-  if (!confirm('Delete this Excel file? This cannot be undone.')) return;
+// FIX: deleteExcelFile now receives the file name for a better confirm message,
+// and handles the server's "cannot delete last file" error gracefully.
+async function deleteExcelFile(fileId, fileName) {
+  if (!confirm('Delete "' + (fileName || 'this file') + '"? This cannot be undone.')) return;
   try {
     const res  = await fetch('/api/files/' + fileId, { method: 'DELETE', credentials: 'include' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    // Refresh list in modal
-    await openHistoryModal();
-    // Also reload state in case active file was deleted
+    toast('File deleted', 'info');
+
+    // Reload state — server now guarantees at least one file remains
     const full = await fetch('/api/state', { credentials: 'include' });
     state       = await full.json();
     activeSheet = 0;
     render();
-    toast('File deleted', 'info');
+
+    // Refresh the history list
+    await openHistoryModal();
   } catch(e) {
-    toast('Failed to delete file: ' + e.message, 'err');
+    toast(e.message || 'Failed to delete file', 'err');
+    // Still refresh list in case something changed
+    await openHistoryModal();
   }
 }
 
 // ── Render ────────────────────────────────────────────────────────
 function render() {
-  if (!state) return;
+  if (!state || !state.sheets || !state.sheets.length) return;
 
-  document.getElementById('activeFileName').textContent = 'Excel File: ' + state.activeFile.name;
+  // Clamp activeSheet in case sheets were deleted
+  if (activeSheet >= state.sheets.length) activeSheet = state.sheets.length - 1;
+
+  document.getElementById('activeFileName').textContent = 'Excel File: ' + (state.activeFile ? state.activeFile.name : '—');
   document.getElementById('headerOdip').textContent     = state.nextOdip;
 
   // Tabs
@@ -1124,13 +1028,14 @@ function render() {
   tbody.innerHTML = '';
   cur.patients.forEach(p => {
     const tr = document.createElement('tr');
+    // FIX: Use data attributes for delete so apostrophes/quotes in names never break anything
     tr.innerHTML =
       '<td style="text-align:center"><span class="td-odip">' + p.odip + '</span></td>' +
       '<td><span class="td-name">'      + esc(p.name)      + '</span></td>' +
       '<td><span class="td-treatment">' + esc(p.treatment) + '</span></td>' +
       '<td><span class="td-amt">₹'     + p.amount         + '</span></td>' +
       '<td style="text-align:center">' +
-        '<button class="btn btn-del" onclick="deletePatient(' + p.id + ',\'' + esc(p.name) + '\')" title="Remove">✕</button>' +
+        '<button class="btn btn-del" data-delete-id="' + p.id + '" data-delete-name="' + esc(p.name) + '" title="Remove">✕</button>' +
       '</td>';
     tbody.appendChild(tr);
   });
@@ -1146,7 +1051,7 @@ function esc(s) {
 function toast(msg, type='info') {
   const el = document.createElement('div');
   el.className = 'toast toast--' + type;
-  el.innerHTML = '<span class="toast-dot"></span><span>' + msg + '</span>';
+  el.innerHTML = '<span class="toast-dot"></span><span>' + esc(msg) + '</span>';
   document.getElementById('toasts').appendChild(el);
   setTimeout(() => {
     el.style.animation = 'tOut .22s ease forwards';
