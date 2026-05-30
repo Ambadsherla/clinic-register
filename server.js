@@ -290,16 +290,18 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
-app.use(express.static(__dirname));
+// Serve static files from root directory (where index.html and login.html live)
+const ROOT = __dirname;
+app.use(express.static(ROOT));
 
 // ── Page Routes ───────────────────────────────────────────────────
 app.get('/', (req, res) => {
   if (!req.session.userId) return res.redirect('/login.html');
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(ROOT, 'index.html'));
 });
 app.get('/login.html', (req, res) => {
   if (req.session.userId) return res.redirect('/');
-  res.sendFile(path.join(__dirname, 'login.html'));
+  res.sendFile(path.join(ROOT, 'login.html'));
 });
 
 // ── Auth middleware ────────────────────────────────────────────────
