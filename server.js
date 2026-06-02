@@ -115,15 +115,15 @@ const TREATMENTS = [
   { name: 'Para, Omez, Amox, Cetriza',            amount: 70  },
   { name: 'Anticold, Ibu200, Amox, Dexa',             amount: 70  },
   { name: 'Anticold, Nimo100, Amox, Dexa',            amount: 70  },
-  { Name: 'Levocitriza, AD cap, Amox, Famotab, Inj.Dexa', amount: 140 },
-  { Name: 'Diclopara, Metro, Demiz, Cetriza, Inj.cyna', amount: 140 },
-  { Name: 'Aceclopara, Nuvit, Omez, Dexa', amount: 70 },
-  { Name: 'Inj.Cyna, Aceclopara, Nuvit, Omez, Dexa', amount: 140 },
-  { Name: '300, Depin, Dexa' , amount: 50 },
-  { Name: 'Para, Depin, Dexa', amount: 50 },
-  { Name: 'Inj.Genta, Cyclopaam, Omez-D, Metrio, Dexa', amount: 140 },
-  { Name: 'Grocin, BC, CPM, Amoxin, Dexa', amount: 70 },
-  { Name: 'Para, Lipra, CPM, Sodium', amount: 50 },
+  { name: 'Levocitriza, AD cap, Amox, Famotab, Inj.Dexa', amount: 140 },
+  { name: 'Diclopara, Metro, Demiz, Cetriza, Inj.cyna', amount: 140 },
+  { name: 'Aceclopara, Nuvit, Omez, Dexa', amount: 70 },
+  { name: 'Inj.Cyna, Aceclopara, Nuvit, Omez, Dexa', amount: 140 },
+  { name: '300, Depin, Dexa' , amount: 50 },
+  { name: 'Para, Depin, Dexa', amount: 50 },
+  { name: 'Inj.Genta, Cyclopaam, Omez-D, Metrio, Dexa', amount: 140 },
+  { name: 'Grocin, BC, CPM, Amoxin, Dexa', amount: 70 },
+  { name: 'Para, Lipra, CPM, Sodium', amount: 50 },
 
 ];
 function randTreatment() {
@@ -234,7 +234,30 @@ async function buildExcel(state) {
   wb.creator = 'Clinic Register';
 
   for (const sheet of state.sheets) {
-    if (!sheet.patients.length) continue;
+if (
+    sheet.name.toLowerCase() === 'sunday' ||
+    sheet.name.toLowerCase() === 'holiday'
+) {
+    const ws = wb.addWorksheet(sheet.name);
+
+    ws.mergeCells('A1:D20');
+
+    const cell = ws.getCell('A1');
+
+    cell.value = sheet.name.toUpperCase();
+
+    cell.font = {
+        size: 72,
+        bold: true
+    };
+
+    cell.alignment = {
+        horizontal: 'center',
+        vertical: 'middle'
+    };
+
+    continue;
+}
     const ws = wb.addWorksheet(sheet.name);
     ws.getColumn(1).width = 12;
     ws.getColumn(2).width = 28;
@@ -543,8 +566,8 @@ app.delete('/api/files/:id', auth, async (req, res) => {
 // POST /api/sheet — create new sheet in active file
 app.post('/api/sheet', auth, async (req, res) => {
   try {
-    const userId       = req.session.userId;
-    const activeFileId = await getActiveFileId(userId);
+    const userId = req.session.userId;
+const activeFileId = req.body.fileId;
 
     const countRes = await pool.query(
       'SELECT COUNT(*) FROM sheets WHERE file_id = $1 AND user_id = $2',
@@ -594,8 +617,20 @@ app.delete('/api/sheet/:id', auth, async (req, res) => {
     if (!check.rows.length) return res.status(403).json({ error: 'Access denied' });
 
     // Must keep at least 1 sheet
-    const countRes = await pool.query('SELECT COUNT(*) FROM sheets WHERE user_id = $1', [userId]);
-    if (parseInt(countRes.rows[0].count) <= 1) return res.status(400).json({ error: 'Cannot delete last sheet' });
+    const sheetInfo = await pool.query(
+    'SELECT file_id FROM sheets WHERE id = $1',
+    [id]
+);
+
+const countRes = await pool.query(
+    'SELECT COUNT(*) FROM sheets WHERE file_id = $1',
+    [sheetInfo.rows[0].file_id]
+);
+
+if (parseInt(countRes.rows[0].count) <= 1)
+    return res.status(400).json({
+        error: 'Cannot delete last sheet'
+    });
 
     await pool.query('DELETE FROM patients WHERE sheet_id = $1', [id]);
     await pool.query('DELETE FROM sheets WHERE id = $1', [id]);
