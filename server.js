@@ -303,11 +303,17 @@ if (
 
 // ── Middleware ─────────────────────────────────────────────────────
 app.use(express.json());
+app.set('trust proxy', 1);
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'clinic-secret-key-2024',
+  secret: process.env.SESSION_SECRET || 'clinic-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 * 7 } // 7 days
+  cookie: {
+    secure: true,
+    sameSite: 'none',
+    maxAge: 1000 * 60 * 60 * 24 * 7
+  }
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
