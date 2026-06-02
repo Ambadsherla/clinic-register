@@ -207,6 +207,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   60%{transform:translateX(-4px)} 80%{transform:translateX(3px)}
 }
 .shake{animation:shake .35s ease !important;border-color:var(--red) !important}
+
+.holiday-sheet{
+    height:72vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:72px;
+    font-weight:700;
+    color:var(--sage);
+    text-align:center;
+}
 </style>
 </head>
 <body>
@@ -349,6 +360,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
         Save Patient
       </button>
     </div>
+    <div id="holidayView" style="display:none">
+  <div class="holiday-sheet">
+    <span id="holidayText"></span>
+  </div>
+</div>
 
     <div class="table-card">
       <div class="table-hdr">
@@ -739,7 +755,15 @@ function closeDlg()         { hide('sheetDlg'); }
 async function createSheet() {
   closeDlg();
   try {
-    const res  = await fetch('/api/sheet', { method: 'POST', credentials: 'include' });
+const res = await fetch('/api/sheet', {
+    method:'POST',
+    headers:{
+        'Content-Type':'application/json'
+    },
+    body:JSON.stringify({
+        fileId: state.activeFile.id
+    })
+});
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
@@ -790,18 +814,16 @@ async function deleteSheet(sheetId, sheetName) {
 }
 
 // ── Download Excel ────────────────────────────────────────────────
-async function downloadExcel() {
-  try {
-    const res = await fetch('/api/download?fileId=' + state.activeFile.id , { credentials: 'include' });
-    if (!res.ok) throw new Error('Download failed');
-    const blob = await res.blob();
-    const url  = window.URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = 'patients.xlsx';
-    a.click();
-    window.URL.revokeObjectURL(url);
-  } catch(e) { toast(e.message, 'err'); }
+function downloadExcel(){
+
+    if(!state.activeFile){
+        toast('No file selected','err');
+        return;
+    }
+
+    window.location.href =
+      '/api/download?fileId=' +
+      state.activeFile.id;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -885,11 +907,32 @@ async function deleteExcelFile(fileId) {
 // ── Render ────────────────────────────────────────────────────────
 function render() {
   if (!state) return;
+const sheet = state.sheets[activeSheet];
 
   document.getElementById('activeFileName').textContent = 'Excel File: ' + state.activeFile.name;
   document.getElementById('headerOdip').textContent     = state.nextOdip;
 
   // Tabs
+const holidayView = document.getElementById('holidayView');
+const tableCard   = document.querySelector('.table-card');
+
+if(
+   sheet.name.toLowerCase() === 'sunday' ||
+   sheet.name.toLowerCase() === 'holiday'
+){
+    holidayView.style.display = 'block';
+    tableCard.style.display = 'none';
+
+    document.getElementById('holidayText').textContent =
+    sheet.name.toUpperCase();
+
+    return;
+}
+else{
+    holidayView.style.display = 'none';
+    tableCard.style.display = 'block';
+}
+
   const tabsEl = document.getElementById('tabs');
   tabsEl.innerHTML = '';
   state.sheets.forEach((sh, i) => {
