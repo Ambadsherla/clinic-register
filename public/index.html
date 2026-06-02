@@ -814,16 +814,27 @@ async function deleteSheet(sheetId, sheetName) {
 }
 
 // ── Download Excel ────────────────────────────────────────────────
-function downloadExcel(){
+async function downloadExcel() {
 
-    if(!state.activeFile){
-        toast('No file selected','err');
-        return;
+  const res = await fetch(
+    '/api/download?fileId=' + state.activeFile.id,
+    {
+      credentials: 'include'
     }
+  );
 
-    window.location.href =
-      '/api/download?fileId=' +
-      state.activeFile.id;
+  if (!res.ok) {
+    const err = await res.json();
+    alert(err.error);
+    return;
+  }
+
+  const blob = await res.blob();
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = state.activeFile.name + '.xlsx';
+  a.click();
 }
 
 // ═══════════════════════════════════════════════════════════════════
