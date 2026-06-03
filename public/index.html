@@ -805,10 +805,13 @@ async function deleteSheet(sheetId, sheetName) {
     const res  = await fetch('/api/sheet/' + sheetId, { method: 'DELETE', credentials: 'include' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    const full = await fetch('/api/state', { credentials: 'include' });
-    state = await full.json();
-    activeSheet = 0;
-    render();
+    state.sheets = state.sheets.filter(s => s.id !== sheetId);
+
+if (activeSheet >= state.sheets.length) {
+    activeSheet = state.sheets.length - 1;
+}
+
+render();
     toast(sheetName + ' deleted', 'info');
   } catch(e) { toast(e.message, 'err'); }
 }
