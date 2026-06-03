@@ -686,31 +686,32 @@ async function submitSetup() {
 async function savePatient() {
   const input = document.getElementById('nameInput');
   const name  = input.value.trim();
-  if (
+ if (
     name.toLowerCase() === 'sunday' ||
     name.toLowerCase() === 'holiday'
 ) {
 
-    const sheetId = state.sheets[activeSheet].id;
+    const holidayType =
+        name.toUpperCase();
 
-    await fetch('/api/sheet/' + sheetId + '/rename', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json'
+    await fetch('/api/sheet/holiday',{
+        method:'POST',
+        credentials:'include',
+        headers:{
+            'Content-Type':'application/json'
         },
-        body: JSON.stringify({
-            name: name
+        body:JSON.stringify({
+            sheetId: state.sheets[activeSheet].id,
+            holidayType
         })
     });
 
-    state.sheets[activeSheet].name = name;
+    state.sheets[activeSheet].holidayType =
+        holidayType;
 
-    input.value = '';
+    input.value='';
 
     render();
-
-    toast(name + ' sheet created', 'ok');
 
     return;
 }
@@ -958,19 +959,13 @@ const sheet = state.sheets[activeSheet];
 const holidayView = document.getElementById('holidayView');
 const tableCard   = document.querySelector('.table-card');
 
-if (
-    sheet.name &&
-    (
-        sheet.name.toLowerCase() === 'sunday' ||
-        sheet.name.toLowerCase() === 'holiday'
-    )
-){
+if (sheet.holidayType){
     holidayView.style.display = 'block';
     tableCard.style.display = 'none';
     document.querySelector('.entry-card').style.display = 'none';
 
     document.getElementById('holidayText').textContent =
-    sheet.name.toUpperCase();
+    sheet.holidayType;
 
     return;
 }
