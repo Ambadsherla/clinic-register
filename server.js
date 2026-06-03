@@ -245,18 +245,32 @@ if (
     sheet.name.toLowerCase() === 'sunday' ||
     sheet.name.toLowerCase() === 'holiday'
 ) {
+
     const ws = wb.addWorksheet(sheet.name);
 
-    ws.mergeCells('A1:D20');
+    // Make columns wide
+    for(let i=1;i<=20;i++){
+        ws.getColumn(i).width = 15;
+    }
 
-    const cell = ws.getCell('A1');
+    // Make rows tall
+    for(let i=1;i<=30;i++){
+        ws.getRow(i).height = 30;
+    }
 
-cell.value =
-    sheet.holidayType || sheet.name.toUpperCase();
+    // Large center area
+    ws.mergeCells('C5:N15');
+
+    const cell = ws.getCell('C5');
+
+    cell.value =
+        sheet.holidayType ||
+        sheet.name.toUpperCase();
 
     cell.font = {
         size: 72,
-        bold: true
+        bold: true,
+        name: 'Calibri'
     };
 
     cell.alignment = {
