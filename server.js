@@ -26,6 +26,11 @@ async function initDB() {
     )
   `);
 
+  await pool.query(`
+ALTER TABLE sheets
+ADD COLUMN IF NOT EXISTS holiday_type TEXT
+`);
+
   // Per-user ODIP config
   await pool.query(`
     CREATE TABLE IF NOT EXISTS clinic_config (
@@ -56,7 +61,8 @@ async function initDB() {
       user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
       name       TEXT NOT NULL,
       position   INTEGER NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP DEFAULT NOW(),
+      holiday_type TEXT
     )
   `);
 
@@ -175,16 +181,17 @@ async function loadState(userId, fileId = null) {
       [sh.id, userId]
     );
     sheets.push({
-      id:       sh.id,
-      name:     sh.name,
-      patients: pRes.rows.map(p => ({
-        id:        p.id,
-        odip:      p.odip,
-        name:      p.name,
-        treatment: p.treatment,
-        amount:    p.amount
-      }))
-    });
+  id: sh.id,
+  name: sh.name,
+  holidayType: sh.holiday_type,
+  patients: pRes.rows.map(p => ({
+      id: p.id,
+      odip: p.odip,
+      name: p.name,
+      treatment: p.treatment,
+      amount: p.amount
+  }))
+});
   }
 
   return {
@@ -244,8 +251,9 @@ if (
 
     const cell = ws.getCell('A1');
 
-    cell.value = sheet.name.toUpperCase();
-
+cell.value =
+    sheet.holidayType || sheet.name.toUpperCase();
+    
     cell.font = {
         size: 72,
         bold: true
@@ -647,6 +655,20 @@ if (parseInt(countRes.rows[0].count) <= 1)
     console.error(e);
     res.status(500).json({ error: e.message });
   }
+});
+
+app.post('/api/sheet/holiday', auth, async (req,res)=>{
+
+    const { sheetId, holidayType } = req.body;
+
+    await pool.query(
+        `UPDATE sheets
+         SET holiday_type = $1
+         WHERE id = $2 AND user_id = $3`,
+        [holidayType, sheetId, req.session.userId]
+    );
+
+    res.json({ ok:true });
 });
 
 // ═══════════════════════════════════════════════════════════════════
