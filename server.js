@@ -253,7 +253,7 @@ if (
 
 cell.value =
     sheet.holidayType || sheet.name.toUpperCase();
-    
+
     cell.font = {
         size: 72,
         bold: true
@@ -662,11 +662,12 @@ app.post('/api/sheet/holiday', auth, async (req,res)=>{
     const { sheetId, holidayType } = req.body;
 
     await pool.query(
-        `UPDATE sheets
-         SET holiday_type = $1
-         WHERE id = $2 AND user_id = $3`,
-        [holidayType, sheetId, req.session.userId]
-    );
+  `UPDATE sheets
+   SET holiday_type = $1,
+       name = $1
+   WHERE id = $2 AND user_id = $3`,
+   [holidayType, sheetId, req.session.userId]
+);
 
     res.json({ ok:true });
 });
