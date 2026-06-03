@@ -686,6 +686,34 @@ async function submitSetup() {
 async function savePatient() {
   const input = document.getElementById('nameInput');
   const name  = input.value.trim();
+  if (
+    name.toLowerCase() === 'sunday' ||
+    name.toLowerCase() === 'holiday'
+) {
+
+    const sheetId = state.sheets[activeSheet].id;
+
+    await fetch('/api/sheet/' + sheetId + '/rename', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name: name
+        })
+    });
+
+    state.sheets[activeSheet].name = name;
+
+    input.value = '';
+
+    render();
+
+    toast(name + ' sheet created', 'ok');
+
+    return;
+}
   if (!name) {
     input.classList.add('shake');
     setTimeout(() => input.classList.remove('shake'), 400);
@@ -930,12 +958,16 @@ const sheet = state.sheets[activeSheet];
 const holidayView = document.getElementById('holidayView');
 const tableCard   = document.querySelector('.table-card');
 
-if(
-   sheet.name.toLowerCase() === 'sunday' ||
-   sheet.name.toLowerCase() === 'holiday'
+if (
+    sheet.name &&
+    (
+        sheet.name.toLowerCase() === 'sunday' ||
+        sheet.name.toLowerCase() === 'holiday'
+    )
 ){
     holidayView.style.display = 'block';
     tableCard.style.display = 'none';
+    document.querySelector('.entry-card').style.display = 'none';
 
     document.getElementById('holidayText').textContent =
     sheet.name.toUpperCase();
@@ -945,6 +977,7 @@ if(
 else{
     holidayView.style.display = 'none';
     tableCard.style.display = 'block';
+    document.querySelector('.entry-card').style.display = 'flex';
 }
 
   const tabsEl = document.getElementById('tabs');
