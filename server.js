@@ -165,8 +165,28 @@ async function loadState(userId, fileId = null) {
     fileValues = [userId];
   }
   const fileRes  = await pool.query(fileQuery, fileValues);
-  const activeFile = fileRes.rows[0];
-  if (!activeFile) throw new Error('No file found');
+  let activeFile = fileRes.rows[0];
+
+  if (!activeFile) {
+    if (fileId) {
+      // A specific file was requested but doesn't exist/belong to user
+      throw new Error('No file found');
+    }
+    // Self-heal: this account has zero excel files (e.g. due to a past bug
+    // that allowed deleting the last file). Create a default one so the
+    // account stops being permanently broken.
+    const now      = new Date();
+    const fileName = 'Excel File ' + now.getDate() + '-' + (now.getMonth()+1) + '-' + now.getFullYear();
+    const newFileRes = await pool.query(
+      'INSERT INTO excel_files (user_id, name) VALUES ($1, $2) RETURNING *',
+      [userId, fileName]
+    );
+    activeFile = newFileRes.rows[0];
+    await pool.query(
+      'INSERT INTO sheets (file_id, user_id, name, position) VALUES ($1, $2, $3, $4)',
+      [activeFile.id, userId, 'Sheet 1', 1]
+    );
+  }
 
   // Sheets for this file
   const sheetsRes = await pool.query(
@@ -575,6 +595,12 @@ app.delete('/api/files/:id', auth, async (req, res) => {
     // Verify ownership
     const check = await pool.query('SELECT id FROM excel_files WHERE id = $1 AND user_id = $2', [id, userId]);
     if (!check.rows.length) return res.status(403).json({ error: 'Access denied' });
+
+    // Must keep at least 1 Excel file
+    const countRes = await pool.query('SELECT COUNT(*) FROM excel_files WHERE user_id = $1', [userId]);
+    if (parseInt(countRes.rows[0].count) <= 1) {
+      return res.status(400).json({ error: 'Cannot delete your only Excel file' });
+    }
 
     await pool.query(`DELETE FROM patients WHERE sheet_id IN (SELECT id FROM sheets WHERE file_id = $1)`, [id]);
     await pool.query('DELETE FROM sheets WHERE file_id = $1', [id]);
