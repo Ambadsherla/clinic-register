@@ -469,7 +469,14 @@ window.addEventListener('DOMContentLoaded', async () => {
       window.location.href = '/login.html';
       return;
     }
-    if (!res.ok) throw new Error('Server error');
+    if (!res.ok) {
+      let msg = 'Server error (' + res.status + ')';
+      try {
+        const errData = await res.json();
+        if (errData && errData.error) msg = errData.error;
+      } catch(_) {}
+      throw new Error(msg);
+    }
     state = await res.json();
     hide('loadingOverlay');
 
@@ -480,7 +487,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   } catch(e) {
     hide('loadingOverlay');
-    alert('Cannot connect to server.\n\nCheck that the server is running and DATABASE_URL is set.');
+    alert('Could not load your data.\n\n' + e.message + '\n\nPlease refresh the page. If this keeps happening, contact support.');
   }
 
   document.getElementById('nameInput').addEventListener('keydown', e => {
