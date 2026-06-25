@@ -11,32 +11,11 @@ const PORT = process.env.PORT || 3000;
 // ── PostgreSQL connection ──────────────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 10000, // give Render's DB time to wake/respond
-  idleTimeoutMillis: 30000,
-  max: 10
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// Don't let a stray idle-client error crash the whole process
-pool.on('error', (err) => {
-  console.error('Unexpected PG pool error:', err.message);
-});
-
-// ── DB Init (with retry — handles transient connection drops on boot) ──
-async function initDB(retries = 5, delayMs = 3000) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      await initDBOnce();
-      return;
-    } catch (e) {
-      console.error(`DB init attempt ${attempt}/${retries} failed:`, e.message);
-      if (attempt === retries) throw e;
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-  }
-}
-
-async function initDBOnce() {
+// ── DB Init ────────────────────────────────────────────────────────
+async function initDB() {
   // Users table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
