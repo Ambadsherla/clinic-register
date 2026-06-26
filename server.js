@@ -9,27 +9,56 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ── PostgreSQL connection ──────────────────────────────────────────
+// Render Postgres always needs SSL. rejectUnauthorized:false because
+// Render uses a self-signed cert. keepAlive prevents "connection
+// terminated unexpectedly" when the DB idles between requests.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+  ssl: { rejectUnauthorized: false },
+  keepAlive:               true,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis:       30000,
+  max:                     10
 });
 
-// ── DB Init ────────────────────────────────────────────────────────
-async function initDB() {
+// Keep idle clients alive so Render doesn't drop them
+pool.on('connect', client => {
+  client.query('SET application_name = \'clinic_register\'').catch(() => {});
+});
+pool.on('error', (err) => {
+  console.error('Unexpected PG pool error (non-fatal):', err.message);
+});
+
+// ── DB Init (with retry) ───────────────────────────────────────────
+// Render's DB container sometimes isn't ready the exact moment the
+// web service starts. Retry up to 10 times with exponential back-off
+// instead of crashing immediately.
+async function initDB(retries = 10, delay = 3000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await _runMigrations();
+      console.log('  ✅  Database ready');
+      return;
+    } catch (err) {
+      console.error(`  ⚠️   DB init attempt ${attempt}/${retries} failed: ${err.message}`);
+      if (attempt === retries) throw err;
+      const wait = delay * Math.pow(1.5, attempt - 1); // 3s, 4.5s, 6.75s …
+      console.log(`  🔄  Retrying in ${Math.round(wait / 1000)}s…`);
+      await new Promise(r => setTimeout(r, wait));
+    }
+  }
+}
+
+async function _runMigrations() {
   // Users table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id       SERIAL PRIMARY KEY,
-      username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
+      id         SERIAL PRIMARY KEY,
+      username   TEXT UNIQUE NOT NULL,
+      password   TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
-
-  await pool.query(`
-ALTER TABLE sheets
-ADD COLUMN IF NOT EXISTS holiday_type TEXT
-`);
 
   // Per-user ODIP config
   await pool.query(`
@@ -56,13 +85,13 @@ ADD COLUMN IF NOT EXISTS holiday_type TEXT
   // Sheets — belong to a file
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sheets (
-      id         SERIAL PRIMARY KEY,
-      file_id    INTEGER REFERENCES excel_files(id) ON DELETE CASCADE,
-      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      name       TEXT NOT NULL,
-      position   INTEGER NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW(),
-      holiday_type TEXT
+      id           SERIAL PRIMARY KEY,
+      file_id      INTEGER REFERENCES excel_files(id) ON DELETE CASCADE,
+      user_id      INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      name         TEXT NOT NULL,
+      position     INTEGER NOT NULL,
+      holiday_type TEXT,
+      created_at   TIMESTAMP DEFAULT NOW()
     )
   `);
 
@@ -81,56 +110,54 @@ ADD COLUMN IF NOT EXISTS holiday_type TEXT
     )
   `);
 
-  // Add user_id columns if missing (migration safety)
+  // Safe migrations for older deployments
   const migrations = [
     `ALTER TABLE clinic_config ADD COLUMN IF NOT EXISTS user_id INTEGER`,
     `ALTER TABLE excel_files   ADD COLUMN IF NOT EXISTS user_id INTEGER`,
     `ALTER TABLE sheets        ADD COLUMN IF NOT EXISTS user_id INTEGER`,
+    `ALTER TABLE sheets        ADD COLUMN IF NOT EXISTS holiday_type TEXT`,
     `ALTER TABLE patients      ADD COLUMN IF NOT EXISTS user_id INTEGER`,
   ];
   for (const m of migrations) {
-    try { await pool.query(m); } catch(e) { /* already exists */ }
+    try { await pool.query(m); } catch(_) { /* column already exists — safe to ignore */ }
   }
-
-  console.log('  ✅  Database ready');
 }
 
-// ── 17 Treatments ─────────────────────────────────────────────────
+// ── 33 Treatments ─────────────────────────────────────────────────
 const TREATMENTS = [
-  { name: 'PA-Para, Amox250, Famtab, Avil',              amount: 70  },
-  { name: 'DicloMR, Neurobin, OMez, Dexa',               amount: 70  },
-  { name: 'Dr-Dressing, grocin BC, cpm, dexa',           amount: 120 },
-  { name: 'Nimupara, Famtab, Levocetriza, Amox260',      amount: 70  },
-  { name: 'Aceclopara, nuvit, famtab, dexa',             amount: 70  },
-  { name: 'inj Rantac, Cyclpam, Omez, Metro, Dexa',      amount: 140 },
-  { name: 'Small, CPM, Depin, Dexa',                      amount: 50  },
-  { name: 'Aceclopara, Neurobin, Famtab, Dexa',          amount: 70  },
-  { name: 'Cyclpam, Pipajam, Famtab, Dexa',              amount: 70  },
-  { name: 'Nimupara, famtab, stemetil, neurobin',        amount: 70  },
-  { name: 'inj.cyna, diclopara, metro, famtab, cetriza', amount: 140 },
-  { name: 'inj.cyna, Ibupura, Avil, Amox260, Dexa',     amount: 140 },
-  { name: 'Para, CPM, Depin, Amox, kid',                  amount: 50  },
-  { name: 'AcekindSP, BC Cap, Amox260, Dexa',            amount: 70  },
-  { name: 'Inj.dexa, Cetriza, ADCap, Amox260, Dexa',    amount: 140 },
-  { name: 'AT-Anticold, Demin, Dexa, Amox260',          amount: 70  },
-  { name: 'Para, Depin, Dexa, Amox, kid',                 amount: 50  },
-  { name: 'Ibupura, Avil, Amox260, Dexa',     amount: 140 },
-  { name: 'Nimopara, Avil, Anticold, Dexa',               amount: 70  },
-  { name: 'Cuyclopam, Omez, Meetro, Dexa',                amount: 50  },
-  { name: 'Cyclpam, Omez, Famtab, Dexa',             amount: 70  },
-  { name: 'Para, Omez, Amox, Cetriza',            amount: 70  },
-  { name: 'Anticold, Ibu200, Amox, Dexa',             amount: 70  },
-  { name: 'Anticold, Nimo100, Amox, Dexa',            amount: 70  },
-  { name: 'Levocitriza, AD cap, Amox, Famotab, Inj.Dexa', amount: 140 },
-  { name: 'Diclopara, Metro, Demiz, Cetriza, Inj.cyna', amount: 140 },
-  { name: 'Aceclopara, Nuvit, Omez, Dexa', amount: 70 },
-  { name: 'Inj.Cyna, Aceclopara, Nuvit, Omez, Dexa', amount: 140 },
-  { name: '300, Depin, Dexa' , amount: 50 },
-  { name: 'Para, Depin, Dexa', amount: 50 },
-  { name: 'Inj.Genta, Cyclopaam, Omez-D, Metrio, Dexa', amount: 140 },
-  { name: 'Grocin, BC, CPM, Amoxin, Dexa', amount: 70 },
-  { name: 'Para, Lipra, CPM, Sodium', amount: 50 },
-
+  { name: 'PA-Para, Amox250, Famtab, Avil',                      amount: 70  },
+  { name: 'DicloMR, Neurobin, OMez, Dexa',                       amount: 70  },
+  { name: 'Dr-Dressing, grocin BC, cpm, dexa',                   amount: 120 },
+  { name: 'Nimupara, Famtab, Levocetriza, Amox260',              amount: 70  },
+  { name: 'Aceclopara, nuvit, famtab, dexa',                     amount: 70  },
+  { name: 'inj Rantac, Cyclpam, Omez, Metro, Dexa',             amount: 140 },
+  { name: 'Small, CPM, Depin, Dexa',                             amount: 50  },
+  { name: 'Aceclopara, Neurobin, Famtab, Dexa',                  amount: 70  },
+  { name: 'Cyclpam, Pipajam, Famtab, Dexa',                      amount: 70  },
+  { name: 'Nimupara, famtab, stemetil, neurobin',                amount: 70  },
+  { name: 'inj.cyna, diclopara, metro, famtab, cetriza',        amount: 140 },
+  { name: 'inj.cyna, Ibupura, Avil, Amox260, Dexa',             amount: 140 },
+  { name: 'Para, CPM, Depin, Amox, kid',                         amount: 50  },
+  { name: 'AcekindSP, BC Cap, Amox260, Dexa',                    amount: 70  },
+  { name: 'Inj.dexa, Cetriza, ADCap, Amox260, Dexa',            amount: 140 },
+  { name: 'AT-Anticold, Demin, Dexa, Amox260',                  amount: 70  },
+  { name: 'Para, Depin, Dexa, Amox, kid',                        amount: 50  },
+  { name: 'Ibupura, Avil, Amox260, Dexa',                        amount: 140 },
+  { name: 'Nimopara, Avil, Anticold, Dexa',                      amount: 70  },
+  { name: 'Cyclpam, Omez, Meetro, Dexa',                         amount: 50  },
+  { name: 'Cyclpam, Omez, Famtab, Dexa',                         amount: 70  },
+  { name: 'Para, Omez, Amox, Cetriza',                           amount: 70  },
+  { name: 'Anticold, Ibu200, Amox, Dexa',                        amount: 70  },
+  { name: 'Anticold, Nimo100, Amox, Dexa',                       amount: 70  },
+  { name: 'Levocitriza, AD cap, Amox, Famotab, Inj.Dexa',       amount: 140 },
+  { name: 'Diclopara, Metro, Demiz, Cetriza, Inj.cyna',         amount: 140 },
+  { name: 'Aceclopara, Nuvit, Omez, Dexa',                       amount: 70  },
+  { name: 'Inj.Cyna, Aceclopara, Nuvit, Omez, Dexa',            amount: 140 },
+  { name: '300, Depin, Dexa',                                     amount: 50  },
+  { name: 'Para, Depin, Dexa',                                    amount: 50  },
+  { name: 'Inj.Genta, Cyclopaam, Omez-D, Metrio, Dexa',         amount: 140 },
+  { name: 'Grocin, BC, CPM, Amoxin, Dexa',                       amount: 70  },
+  { name: 'Para, Lipra, CPM, Sodium',                             amount: 50  },
 ];
 function randTreatment() {
   return TREATMENTS[Math.floor(Math.random() * TREATMENTS.length)];
@@ -148,14 +175,12 @@ async function getActiveFileId(userId) {
 
 // ── Load full state from DB ────────────────────────────────────────
 async function loadState(userId, fileId = null) {
-  // Config
   const cfgRes = await pool.query(
     'SELECT * FROM clinic_config WHERE user_id = $1 LIMIT 1',
     [userId]
   );
   const cfg = cfgRes.rows[0];
 
-  // Active file
   let fileQuery, fileValues;
   if (fileId) {
     fileQuery  = 'SELECT * FROM excel_files WHERE id = $1 AND user_id = $2';
@@ -168,13 +193,8 @@ async function loadState(userId, fileId = null) {
   let activeFile = fileRes.rows[0];
 
   if (!activeFile) {
-    if (fileId) {
-      // A specific file was requested but doesn't exist/belong to user
-      throw new Error('No file found');
-    }
-    // Self-heal: this account has zero excel files (e.g. due to a past bug
-    // that allowed deleting the last file). Create a default one so the
-    // account stops being permanently broken.
+    if (fileId) throw new Error('No file found');
+    // ── Self-heal: account has zero Excel files (past delete-all bug) ──
     const now      = new Date();
     const fileName = 'Excel File ' + now.getDate() + '-' + (now.getMonth()+1) + '-' + now.getFullYear();
     const newFileRes = await pool.query(
@@ -188,7 +208,6 @@ async function loadState(userId, fileId = null) {
     );
   }
 
-  // Sheets for this file
   const sheetsRes = await pool.query(
     'SELECT * FROM sheets WHERE file_id = $1 AND user_id = $2 ORDER BY position ASC',
     [activeFile.id, userId]
@@ -201,17 +220,17 @@ async function loadState(userId, fileId = null) {
       [sh.id, userId]
     );
     sheets.push({
-  id: sh.id,
-  name: sh.name,
-  holidayType: sh.holiday_type,
-  patients: pRes.rows.map(p => ({
-      id: p.id,
-      odip: p.odip,
-      name: p.name,
-      treatment: p.treatment,
-      amount: p.amount
-  }))
-});
+      id:          sh.id,
+      name:        sh.name,
+      holidayType: sh.holiday_type,
+      patients:    pRes.rows.map(p => ({
+        id:        p.id,
+        odip:      p.odip,
+        name:      p.name,
+        treatment: p.treatment,
+        amount:    p.amount
+      }))
+    });
   }
 
   return {
@@ -231,7 +250,6 @@ async function renumberOdips(userId) {
   );
   const startOdip = cfgRes.rows[0] ? cfgRes.rows[0].start_odip : 1;
 
-  // Get all sheets for user, across all files, ordered by file id then position
   const sheetsRes = await pool.query(
     'SELECT id FROM sheets WHERE user_id = $1 ORDER BY file_id ASC, position ASC',
     [userId]
@@ -261,45 +279,18 @@ async function buildExcel(state) {
   wb.creator = 'Clinic Register';
 
   for (const sheet of state.sheets) {
-if (
-    sheet.name.toLowerCase() === 'sunday' ||
-    sheet.name.toLowerCase() === 'holiday'
-) {
-
-    const ws = wb.addWorksheet(sheet.name);
-
-    // Make columns wide
-    for(let i=1;i<=20;i++){
-        ws.getColumn(i).width = 15;
+    if (sheet.holidayType || sheet.name.toLowerCase() === 'sunday' || sheet.name.toLowerCase() === 'holiday') {
+      const ws = wb.addWorksheet(sheet.name);
+      for (let i = 1; i <= 20; i++) ws.getColumn(i).width = 15;
+      for (let i = 1; i <= 30; i++) ws.getRow(i).height  = 30;
+      ws.mergeCells('C5:N15');
+      const cell       = ws.getCell('C5');
+      cell.value       = sheet.holidayType || sheet.name.toUpperCase();
+      cell.font        = { size: 72, bold: true, name: 'Calibri' };
+      cell.alignment   = { horizontal: 'center', vertical: 'middle' };
+      continue;
     }
 
-    // Make rows tall
-    for(let i=1;i<=30;i++){
-        ws.getRow(i).height = 30;
-    }
-
-    // Large center area
-    ws.mergeCells('C5:N15');
-
-    const cell = ws.getCell('C5');
-
-    cell.value =
-        sheet.holidayType ||
-        sheet.name.toUpperCase();
-
-    cell.font = {
-        size: 72,
-        bold: true,
-        name: 'Calibri'
-    };
-
-    cell.alignment = {
-        horizontal: 'center',
-        vertical: 'middle'
-    };
-
-    continue;
-}
     const ws = wb.addWorksheet(sheet.name);
     ws.getColumn(1).width = 12;
     ws.getColumn(2).width = 28;
@@ -309,9 +300,9 @@ if (
     const hRow = ws.getRow(1);
     hRow.height = 22;
     ['ODIP No.', 'Patient Name', 'Treatment Given', 'Amount'].forEach((h, i) => {
-      const c = hRow.getCell(i + 1);
-      c.value = h;
-      c.font  = { bold: true, size: 13, name: 'Calibri' };
+      const c    = hRow.getCell(i + 1);
+      c.value    = h;
+      c.font     = { bold: true, size: 13, name: 'Calibri' };
       c.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
@@ -348,13 +339,13 @@ app.use(express.json());
 app.set('trust proxy', 1);
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'clinic-secret',
-  resave: false,
+  secret:            process.env.SESSION_SECRET || 'clinic-secret-change-me',
+  resave:            false,
   saveUninitialized: false,
   cookie: {
-    secure: true,
+    secure:   true,
     sameSite: 'none',
-    maxAge: 1000 * 60 * 60 * 24 * 7
+    maxAge:   1000 * 60 * 60 * 24 * 7   // 7 days
   }
 }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -379,11 +370,11 @@ function auth(req, res, next) {
 //  AUTH ROUTES
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/signup — create account + first excel file + sheet + config
+// POST /api/signup
 app.post('/api/signup', async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !username.trim())   return res.status(400).json({ error: 'Username is required.' });
+    if (!username || !username.trim())    return res.status(400).json({ error: 'Username is required.' });
     if (!password || password.length < 1) return res.status(400).json({ error: 'Password is required.' });
 
     const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username.trim()]);
@@ -396,21 +387,17 @@ app.post('/api/signup', async (req, res) => {
     );
     const user = userRes.rows[0];
 
-    // Create ODIP config for this user
     await pool.query(
       'INSERT INTO clinic_config (user_id, configured, start_odip, next_odip) VALUES ($1, true, 1, 1)',
       [user.id]
     );
 
-    // Create first Excel file
     const now      = new Date();
     const fileName = 'Excel File ' + now.getDate() + '-' + (now.getMonth()+1) + '-' + now.getFullYear();
     const fileRes  = await pool.query(
       'INSERT INTO excel_files (user_id, name) VALUES ($1, $2) RETURNING *',
       [user.id, fileName]
     );
-
-    // Create first sheet
     await pool.query(
       'INSERT INTO sheets (file_id, user_id, name, position) VALUES ($1, $2, $3, $4)',
       [fileRes.rows[0].id, user.id, 'Sheet 1', 1]
@@ -427,7 +414,9 @@ app.post('/api/signup', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const userRes = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    if (!username || !password) return res.status(400).json({ error: 'Username and password are required.' });
+
+    const userRes = await pool.query('SELECT * FROM users WHERE username = $1', [username.trim()]);
     if (!userRes.rows.length) return res.status(401).json({ error: 'Invalid username or password.' });
 
     const user = userRes.rows[0];
@@ -436,9 +425,9 @@ app.post('/api/login', async (req, res) => {
 
     req.session.userId   = user.id;
     req.session.username = user.username;
-
     res.json({ ok: true });
   } catch(e) {
+    console.error('Login error:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -452,7 +441,6 @@ app.post('/api/logout', (req, res) => {
 //  STATE
 // ═══════════════════════════════════════════════════════════════════
 
-// GET /api/state — load full state for logged-in user
 app.get('/api/state', auth, async (req, res) => {
   try {
     res.json(await loadState(req.session.userId));
@@ -463,13 +451,12 @@ app.get('/api/state', auth, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-//  SESSION (auto new sheet on login)
+//  SESSION
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/session — create new dated sheet in active file
 app.post('/api/session', auth, async (req, res) => {
   try {
-    const userId      = req.session.userId;
+    const userId       = req.session.userId;
     const activeFileId = await getActiveFileId(userId);
 
     const posRes  = await pool.query(
@@ -497,7 +484,6 @@ app.post('/api/session', auth, async (req, res) => {
 //  ODIP
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/odip/set
 app.post('/api/odip/set', auth, async (req, res) => {
   const { odip } = req.body;
   if (!odip || odip < 1 || odip > 999999) return res.status(400).json({ error: 'Invalid ODIP number' });
@@ -512,7 +498,6 @@ app.post('/api/odip/set', auth, async (req, res) => {
   }
 });
 
-// POST /api/setup (legacy)
 app.post('/api/setup', auth, async (req, res) => {
   const { startOdip } = req.body;
   if (!startOdip || startOdip < 1) return res.status(400).json({ error: 'Invalid ODIP' });
@@ -531,7 +516,6 @@ app.post('/api/setup', auth, async (req, res) => {
 //  EXCEL FILES
 // ═══════════════════════════════════════════════════════════════════
 
-// GET /api/files — list user's excel files
 app.get('/api/files', auth, async (req, res) => {
   try {
     const filesRes = await pool.query(
@@ -544,7 +528,6 @@ app.get('/api/files', auth, async (req, res) => {
   }
 });
 
-// POST /api/excel/new — create new Excel file with Sheet 1
 app.post('/api/excel/new', auth, async (req, res) => {
   try {
     const userId = req.session.userId;
@@ -568,11 +551,9 @@ app.post('/api/excel/new', auth, async (req, res) => {
   }
 });
 
-// POST /api/files/switch — switch active file
 app.post('/api/files/switch', auth, async (req, res) => {
   try {
     const { fileId } = req.body;
-    // Verify ownership
     const check = await pool.query(
       'SELECT id FROM excel_files WHERE id = $1 AND user_id = $2',
       [fileId, req.session.userId]
@@ -586,23 +567,21 @@ app.post('/api/files/switch', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/files/:id
+// DELETE /api/files/:id — cannot delete last remaining file
 app.delete('/api/files/:id', auth, async (req, res) => {
   try {
     const id     = parseInt(req.params.id);
     const userId = req.session.userId;
 
-    // Verify ownership
     const check = await pool.query('SELECT id FROM excel_files WHERE id = $1 AND user_id = $2', [id, userId]);
     if (!check.rows.length) return res.status(403).json({ error: 'Access denied' });
 
-    // Must keep at least 1 Excel file
     const countRes = await pool.query('SELECT COUNT(*) FROM excel_files WHERE user_id = $1', [userId]);
     if (parseInt(countRes.rows[0].count) <= 1) {
       return res.status(400).json({ error: 'Cannot delete your only Excel file' });
     }
 
-    await pool.query(`DELETE FROM patients WHERE sheet_id IN (SELECT id FROM sheets WHERE file_id = $1)`, [id]);
+    await pool.query('DELETE FROM patients WHERE sheet_id IN (SELECT id FROM sheets WHERE file_id = $1)', [id]);
     await pool.query('DELETE FROM sheets WHERE file_id = $1', [id]);
     await pool.query('DELETE FROM excel_files WHERE id = $1', [id]);
 
@@ -617,11 +596,10 @@ app.delete('/api/files/:id', auth, async (req, res) => {
 //  SHEETS
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/sheet — create new sheet in active file
 app.post('/api/sheet', auth, async (req, res) => {
   try {
-    const userId = req.session.userId;
-const activeFileId = req.body.fileId;
+    const userId       = req.session.userId;
+    const activeFileId = req.body.fileId;
 
     const countRes = await pool.query(
       'SELECT COUNT(*) FROM sheets WHERE file_id = $1 AND user_id = $2',
@@ -641,12 +619,10 @@ const activeFileId = req.body.fileId;
   }
 });
 
-// PATCH /api/sheet/:id/rename
 app.patch('/api/sheet/:id/rename', auth, async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name cannot be empty' });
   try {
-    // Verify ownership
     const check = await pool.query(
       'SELECT id FROM sheets WHERE id = $1 AND user_id = $2',
       [req.params.id, req.session.userId]
@@ -660,31 +636,23 @@ app.patch('/api/sheet/:id/rename', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/sheet/:id
+// DELETE /api/sheet/:id — cannot delete last sheet in a file
 app.delete('/api/sheet/:id', auth, async (req, res) => {
   try {
     const id     = parseInt(req.params.id);
     const userId = req.session.userId;
 
-    // Verify ownership
     const check = await pool.query('SELECT id FROM sheets WHERE id = $1 AND user_id = $2', [id, userId]);
     if (!check.rows.length) return res.status(403).json({ error: 'Access denied' });
 
-    // Must keep at least 1 sheet
-    const sheetInfo = await pool.query(
-    'SELECT file_id FROM sheets WHERE id = $1',
-    [id]
-);
-
-const countRes = await pool.query(
-    'SELECT COUNT(*) FROM sheets WHERE file_id = $1',
-    [sheetInfo.rows[0].file_id]
-);
-
-if (parseInt(countRes.rows[0].count) <= 1)
-    return res.status(400).json({
-        error: 'Cannot delete last sheet'
-    });
+    const sheetInfo = await pool.query('SELECT file_id FROM sheets WHERE id = $1', [id]);
+    const countRes  = await pool.query(
+      'SELECT COUNT(*) FROM sheets WHERE file_id = $1',
+      [sheetInfo.rows[0].file_id]
+    );
+    if (parseInt(countRes.rows[0].count) <= 1) {
+      return res.status(400).json({ error: 'Cannot delete last sheet' });
+    }
 
     await pool.query('DELETE FROM patients WHERE sheet_id = $1', [id]);
     await pool.query('DELETE FROM sheets WHERE id = $1', [id]);
@@ -697,26 +665,23 @@ if (parseInt(countRes.rows[0].count) <= 1)
   }
 });
 
-app.post('/api/sheet/holiday', auth, async (req,res)=>{
-
-    const { sheetId, holidayType } = req.body;
-
+app.post('/api/sheet/holiday', auth, async (req, res) => {
+  const { sheetId, holidayType } = req.body;
+  try {
     await pool.query(
-  `UPDATE sheets
-   SET holiday_type = $1,
-       name = $1
-   WHERE id = $2 AND user_id = $3`,
-   [holidayType, sheetId, req.session.userId]
-);
-
-    res.json({ ok:true });
+      'UPDATE sheets SET holiday_type = $1, name = $1 WHERE id = $2 AND user_id = $3',
+      [holidayType, sheetId, req.session.userId]
+    );
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════
 //  PATIENTS
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/patient
 app.post('/api/patient', auth, async (req, res) => {
   const { name, sheetId } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
@@ -724,21 +689,19 @@ app.post('/api/patient', auth, async (req, res) => {
   try {
     const userId = req.session.userId;
 
-    // Verify sheet belongs to user
     const shRes = await pool.query(
       'SELECT * FROM sheets WHERE id = $1 AND user_id = $2',
       [sheetId, userId]
     );
     if (!shRes.rows.length) return res.status(404).json({ error: 'Sheet not found' });
 
-    const cfgRes  = await pool.query('SELECT next_odip FROM clinic_config WHERE user_id = $1', [userId]);
+    const cfgRes   = await pool.query('SELECT next_odip FROM clinic_config WHERE user_id = $1', [userId]);
     const nextOdip = cfgRes.rows[0].next_odip;
 
     const countRes = await pool.query('SELECT COUNT(*) FROM patients WHERE sheet_id = $1', [sheetId]);
     const position = parseInt(countRes.rows[0].count) + 1;
 
-    const t = randTreatment();
-
+    const t    = randTreatment();
     const pRes = await pool.query(
       'INSERT INTO patients (sheet_id, user_id, odip, name, treatment, amount, position) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
       [sheetId, userId, nextOdip, name.trim(), t.name, t.amount, position]
@@ -756,13 +719,11 @@ app.post('/api/patient', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/patient/last (undo)
 app.delete('/api/patient/last', auth, async (req, res) => {
   try {
     const { sheetId } = req.body;
     const userId      = req.session.userId;
 
-    // Verify ownership
     const shCheck = await pool.query('SELECT id FROM sheets WHERE id = $1 AND user_id = $2', [sheetId, userId]);
     if (!shCheck.rows.length) return res.status(403).json({ error: 'Access denied' });
 
@@ -784,13 +745,11 @@ app.delete('/api/patient/last', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/patient/:id
 app.delete('/api/patient/:id', auth, async (req, res) => {
   try {
     const id     = parseInt(req.params.id);
     const userId = req.session.userId;
 
-    // Verify ownership
     const check = await pool.query('SELECT id FROM patients WHERE id = $1 AND user_id = $2', [id, userId]);
     if (!check.rows.length) return res.status(403).json({ error: 'Access denied' });
 
@@ -809,12 +768,8 @@ app.delete('/api/patient/:id', auth, async (req, res) => {
 
 app.get('/api/download', auth, async (req, res) => {
   try {
-const fileId = req.query.fileId;
-
-const state = await loadState(
-  req.session.userId,
-  fileId
-);
+    const fileId = req.query.fileId;
+    const state  = await loadState(req.session.userId, fileId);
     const buffer = await buildExcel(state);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${state.activeFile.name}.xlsx"`);
@@ -825,14 +780,15 @@ const state = await loadState(
 });
 
 // ── Start ──────────────────────────────────────────────────────────
-initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log('');
-    console.log('  ✅  Clinic Register running!');
-    console.log('  👉  Open: http://localhost:' + PORT);
-    console.log('');
+initDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log('');
+      console.log('  ✅  Clinic Register running on port ' + PORT);
+      console.log('');
+    });
+  })
+  .catch(err => {
+    console.error('  ❌  DB init permanently failed after all retries:', err.message);
+    process.exit(1);
   });
-}).catch(err => {
-  console.error('DB init failed:', err);
-  process.exit(1);
-});
