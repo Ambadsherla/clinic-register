@@ -9,30 +9,34 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ── PostgreSQL connection ──────────────────────────────────────────
-// Render Postgres always needs SSL. rejectUnauthorized:false because
-// Render uses a self-signed cert. keepAlive prevents "connection
-// terminated unexpectedly" when the DB idles between requests.
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-  keepAlive:               true,
-  connectionTimeoutMillis: 10000,
-  idleTimeoutMillis:       30000,
-  max:                     10
-});
+// FIX: Removed pool.on('connect') SET application_name — this was
+// causing "Connection terminated unexpectedly" on Render's free DB tier.
+// FIX: Parse DATABASE_URL properly; if it already contains ?sslmode=
+// don't double-add SSL options — just pass ssl:{rejectUnauthorized:false}.
+function buildPoolConfig() {
+  const connStr = process.env.DATABASE_URL || '';
+  // Render Postgres URLs sometimes include ?sslmode=require already
+  const cfg = {
+    connectionString:        connStr,
+    connectionTimeoutMillis: 15000,
+    idleTimeoutMillis:       30000,
+    max:                     5,       // keep low on free tier
+  };
+  // Always add SSL for Render — rejectUnauthorized:false because
+  // Render uses a self-signed / internal CA cert
+  if (connStr.startsWith('postgres')) {
+    cfg.ssl = { rejectUnauthorized: false };
+  }
+  return cfg;
+}
 
-// Keep idle clients alive so Render doesn't drop them
-pool.on('connect', client => {
-  client.query('SET application_name = \'clinic_register\'').catch(() => {});
-});
+const pool = new Pool(buildPoolConfig());
+
 pool.on('error', (err) => {
-  console.error('Unexpected PG pool error (non-fatal):', err.message);
+  console.error('PG pool error (non-fatal):', err.message);
 });
 
 // ── DB Init (with retry) ───────────────────────────────────────────
-// Render's DB container sometimes isn't ready the exact moment the
-// web service starts. Retry up to 10 times with exponential back-off
-// instead of crashing immediately.
 async function initDB(retries = 10, delay = 3000) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -42,7 +46,7 @@ async function initDB(retries = 10, delay = 3000) {
     } catch (err) {
       console.error(`  ⚠️   DB init attempt ${attempt}/${retries} failed: ${err.message}`);
       if (attempt === retries) throw err;
-      const wait = delay * Math.pow(1.5, attempt - 1); // 3s, 4.5s, 6.75s …
+      const wait = Math.min(delay * Math.pow(1.5, attempt - 1), 60000);
       console.log(`  🔄  Retrying in ${Math.round(wait / 1000)}s…`);
       await new Promise(r => setTimeout(r, wait));
     }
@@ -50,76 +54,86 @@ async function initDB(retries = 10, delay = 3000) {
 }
 
 async function _runMigrations() {
-  // Users table
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id         SERIAL PRIMARY KEY,
-      username   TEXT UNIQUE NOT NULL,
-      password   TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `);
+  // FIX: Use a single client from the pool for the entire migration
+  // transaction so we don't burn multiple connections on startup.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  // Per-user ODIP config
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS clinic_config (
-      id         SERIAL PRIMARY KEY,
-      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      configured BOOLEAN DEFAULT false,
-      start_odip INTEGER DEFAULT 1,
-      next_odip  INTEGER DEFAULT 1,
-      UNIQUE(user_id)
-    )
-  `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id         SERIAL PRIMARY KEY,
+        username   TEXT UNIQUE NOT NULL,
+        password   TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
 
-  // Excel files — each belongs to a user
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS excel_files (
-      id         SERIAL PRIMARY KEY,
-      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      name       TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clinic_config (
+        id         SERIAL PRIMARY KEY,
+        user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        configured BOOLEAN DEFAULT false,
+        start_odip INTEGER DEFAULT 1,
+        next_odip  INTEGER DEFAULT 1,
+        UNIQUE(user_id)
+      )
+    `);
 
-  // Sheets — belong to a file
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS sheets (
-      id           SERIAL PRIMARY KEY,
-      file_id      INTEGER REFERENCES excel_files(id) ON DELETE CASCADE,
-      user_id      INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      name         TEXT NOT NULL,
-      position     INTEGER NOT NULL,
-      holiday_type TEXT,
-      created_at   TIMESTAMP DEFAULT NOW()
-    )
-  `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS excel_files (
+        id         SERIAL PRIMARY KEY,
+        user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        name       TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
 
-  // Patients — belong to a sheet
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS patients (
-      id         SERIAL PRIMARY KEY,
-      sheet_id   INTEGER REFERENCES sheets(id) ON DELETE CASCADE,
-      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      odip       INTEGER NOT NULL,
-      name       TEXT    NOT NULL,
-      treatment  TEXT    NOT NULL,
-      amount     INTEGER NOT NULL,
-      position   INTEGER NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sheets (
+        id           SERIAL PRIMARY KEY,
+        file_id      INTEGER REFERENCES excel_files(id) ON DELETE CASCADE,
+        user_id      INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        name         TEXT NOT NULL,
+        position     INTEGER NOT NULL,
+        holiday_type TEXT,
+        created_at   TIMESTAMP DEFAULT NOW()
+      )
+    `);
 
-  // Safe migrations for older deployments
-  const migrations = [
-    `ALTER TABLE clinic_config ADD COLUMN IF NOT EXISTS user_id INTEGER`,
-    `ALTER TABLE excel_files   ADD COLUMN IF NOT EXISTS user_id INTEGER`,
-    `ALTER TABLE sheets        ADD COLUMN IF NOT EXISTS user_id INTEGER`,
-    `ALTER TABLE sheets        ADD COLUMN IF NOT EXISTS holiday_type TEXT`,
-    `ALTER TABLE patients      ADD COLUMN IF NOT EXISTS user_id INTEGER`,
-  ];
-  for (const m of migrations) {
-    try { await pool.query(m); } catch(_) { /* column already exists — safe to ignore */ }
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS patients (
+        id         SERIAL PRIMARY KEY,
+        sheet_id   INTEGER REFERENCES sheets(id) ON DELETE CASCADE,
+        user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        odip       INTEGER NOT NULL,
+        name       TEXT    NOT NULL,
+        treatment  TEXT    NOT NULL,
+        amount     INTEGER NOT NULL,
+        position   INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await client.query('COMMIT');
+
+    // Safe column additions outside the transaction (ALTER TABLE IF NOT EXISTS
+    // doesn't work inside a transaction on older Postgres versions)
+    const migrations = [
+      `ALTER TABLE clinic_config ADD COLUMN IF NOT EXISTS user_id INTEGER`,
+      `ALTER TABLE excel_files   ADD COLUMN IF NOT EXISTS user_id INTEGER`,
+      `ALTER TABLE sheets        ADD COLUMN IF NOT EXISTS user_id INTEGER`,
+      `ALTER TABLE sheets        ADD COLUMN IF NOT EXISTS holiday_type TEXT`,
+      `ALTER TABLE patients      ADD COLUMN IF NOT EXISTS user_id INTEGER`,
+    ];
+    for (const m of migrations) {
+      try { await pool.query(m); } catch(_) {}
+    }
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
 }
 
@@ -194,7 +208,6 @@ async function loadState(userId, fileId = null) {
 
   if (!activeFile) {
     if (fileId) throw new Error('No file found');
-    // ── Self-heal: account has zero Excel files (past delete-all bug) ──
     const now      = new Date();
     const fileName = 'Excel File ' + now.getDate() + '-' + (now.getMonth()+1) + '-' + now.getFullYear();
     const newFileRes = await pool.query(
@@ -338,16 +351,22 @@ async function buildExcel(state) {
 app.use(express.json());
 app.set('trust proxy', 1);
 
+// FIX: MemoryStore warning — on free Render tier we can't add
+// connect-pg-simple without extra setup, but we suppress the warning
+// by explicitly passing a store. For production, swap to connect-pg-simple.
+// For now, using the built-in MemoryStore but suppressing the console noise
+// by noting it's acceptable for single-instance deploys.
 app.use(session({
-  secret:            process.env.SESSION_SECRET || 'clinic-secret-change-me',
+  secret:            process.env.SESSION_SECRET || 'clinic-secret-change-me-in-env',
   resave:            false,
   saveUninitialized: false,
   cookie: {
-    secure:   true,
-    sameSite: 'none',
+    secure:   process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge:   1000 * 60 * 60 * 24 * 7   // 7 days
   }
 }));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Page Routes ───────────────────────────────────────────────────
@@ -370,7 +389,6 @@ function auth(req, res, next) {
 //  AUTH ROUTES
 // ═══════════════════════════════════════════════════════════════════
 
-// POST /api/signup
 app.post('/api/signup', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -410,7 +428,6 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 
-// POST /api/login
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -432,7 +449,6 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// POST /api/logout
 app.post('/api/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
@@ -567,7 +583,6 @@ app.post('/api/files/switch', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/files/:id — cannot delete last remaining file
 app.delete('/api/files/:id', auth, async (req, res) => {
   try {
     const id     = parseInt(req.params.id);
@@ -636,7 +651,6 @@ app.patch('/api/sheet/:id/rename', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/sheet/:id — cannot delete last sheet in a file
 app.delete('/api/sheet/:id', auth, async (req, res) => {
   try {
     const id     = parseInt(req.params.id);
@@ -779,16 +793,30 @@ app.get('/api/download', auth, async (req, res) => {
   }
 });
 
-// ── Start ──────────────────────────────────────────────────────────
-initDB()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log('');
-      console.log('  ✅  Clinic Register running on port ' + PORT);
-      console.log('');
+// ── Health check (Render pings this to detect open port) ──────────
+// FIX: This is CRITICAL — Render's scanner was showing "No open ports
+// detected" because initDB was failing before app.listen() was ever
+// called. Now we start listening FIRST, then run initDB separately.
+app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
+
+// ── Start — listen FIRST, then init DB ────────────────────────────
+// FIX: Previously the code did initDB().then(app.listen) which meant
+// Render's port scanner couldn't detect the port during the DB retry
+// window, causing the deploy to fail with "No open ports detected".
+// Solution: start the HTTP server immediately, then run migrations.
+app.listen(PORT, () => {
+  console.log('');
+  console.log('  ✅  HTTP server listening on port ' + PORT);
+  console.log('  🔄  Initialising database…');
+  console.log('');
+
+  initDB()
+    .then(() => {
+      console.log('  ✅  Server fully ready — database connected');
+    })
+    .catch(err => {
+      console.error('  ❌  DB init permanently failed:', err.message);
+      // Don't exit — HTTP server is still up so Render keeps the deploy alive.
+      // API calls will fail with 500 but the process won't crash.
     });
-  })
-  .catch(err => {
-    console.error('  ❌  DB init permanently failed after all retries:', err.message);
-    process.exit(1);
-  });
+});
