@@ -291,9 +291,35 @@ async function buildExcel(state) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Clinic Register';
 
+  // FIX: Excel worksheet names can never contain \ / * ? : [ ] and must be
+  // <=31 chars. Previously this was only sanitized for holiday sheets, so
+  // a renamed sheet like "01/08/2026" (containing '/') crashed the whole
+  // download with "Worksheet name ... cannot include ...". Now every sheet
+  // name is sanitized, and we also dedupe in case two sheets collapse to
+  // the same safe name (Excel forbids duplicate worksheet names too).
+  const usedSheetNames = new Set();
+  function sanitizeSheetName(rawName) {
+    const cleaned = String(rawName || 'Sheet')
+      .replace(/[\\/*?:[\]]/g, '-')
+      .trim()
+      .substring(0, 31) || 'Sheet';
+
+    let finalName = cleaned;
+    let suffix    = 2;
+    while (usedSheetNames.has(finalName)) {
+      const suffixStr = '-' + suffix;
+      finalName = cleaned.substring(0, 31 - suffixStr.length) + suffixStr;
+      suffix++;
+    }
+    usedSheetNames.add(finalName);
+    return finalName;
+  }
+
   for (const sheet of state.sheets) {
+    const safeSheetName = sanitizeSheetName(sheet.name);
+
     if (sheet.holidayType || sheet.name.toLowerCase() === 'sunday' || sheet.name.toLowerCase() === 'holiday') {
-      const ws = wb.addWorksheet(sheet.name);
+    const ws = wb.addWorksheet(safeSheetName);
       for (let i = 1; i <= 20; i++) ws.getColumn(i).width = 15;
       for (let i = 1; i <= 30; i++) ws.getRow(i).height  = 30;
       ws.mergeCells('C5:N15');
@@ -304,7 +330,7 @@ async function buildExcel(state) {
       continue;
     }
 
-    const ws = wb.addWorksheet(sheet.name);
+    const ws = wb.addWorksheet(safeSheetName);
     ws.getColumn(1).width = 12;
     ws.getColumn(2).width = 28;
     ws.getColumn(3).width = 52;
